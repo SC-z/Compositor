@@ -3,6 +3,7 @@ dist/
 build/
 DerivedData/
 *.xcarchive
+*.xcresult
 *.dmg
 
 # Xcode per-user state
@@ -18,6 +19,14 @@ xcuserdata/
 *.cer
 *.certSigningRequest
 .env
+.env.*
+!.env.example
+!.env.sample
+
+# Local analysis and Python caches
+.codegraph/
+__pycache__/
+*.pyc
 
 # Claude Code settings personal to this machine
 .claude/settings.local.json

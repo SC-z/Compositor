@@ -1,5 +1,7 @@
 # Compositor
 
+> This fork adds macOS 15 compatibility and Simplified Chinese localization to [robbietilton/Compositor](https://github.com/robbietilton/Compositor). The local build supports Apple silicon, is ad-hoc signed, and is not notarized. The download links below point to the upstream release, which does not include this fork's changes. The original project description follows.
+
 Adobe Photoshop costs too much and tools like GIMP don’t feel familiar enough for me to stay in flow. That’s why I built Compositor.
 
 The goal was to create a full-featured image editor that is completely free and open source. I used to use Photoshop for compositing and post-processing, so Compositor is built around that workflow - with the tools needed to create a pixel-perfect final image.
@@ -83,18 +85,37 @@ brew install --cask robbietilton-compositor
 
 ## Requirements
 
-- macOS 26.0 or later on a Mac with Apple silicon
+- macOS 15.0 or later on a Mac with Apple silicon (this source build)
 - Xcode 26 or later (to build from source)
 
 ## Translations
 
-Compositor is English only for now, and translation pull requests aren't being accepted. It's maintained by one person, every new string would need translating from then on, and translations in languages I don't read can't be reviewed. I'll revisit this once the app settles; until then, please don't open localization PRs.
+This compatibility build includes Simplified Chinese in `Compositor/zh-Hans.lproj/Localizable.strings`. The interface follows the app's preferred language; choose Simplified Chinese for Compositor in macOS Language & Region settings. Project format values, font names, and user content keep their original values. Upstream does not currently accept translation pull requests.
 
 ## Building
 
 Open `Compositor.xcodeproj` and run the **Compositor** scheme.
 
+For a local build without full Xcode, install Command Line Tools with Swift 6.2 or later and the macOS 26 SDK, then run:
+
+```sh
+zsh scripts/build-local.sh
+open build/local/Compositor.app
+```
+
+The script downloads and verifies the pinned Sparkle dependency, builds an ad-hoc signed, sandboxed app, and disables automatic update checks for this local build. Official downloads still require macOS 26. On macOS 15, the toolbar uses standard system spacing, and font and blend-mode menus use the system's standard button shape.
+
+The local build strips nonessential symbols before signing. Validate the Chinese resources after building with:
+
+```sh
+python3 scripts/check-localization.py build/local/strings
+```
+
+Generated apps, downloaded dependencies, and extracted strings stay in `build/`; DMG packages stay in `dist/`. Both directories are ignored by Git. Attach installers to GitHub Releases instead of committing them to the source repository.
+
 ## Releasing
+
+The release and publish scripts retain the upstream signing and repository settings. Configure your own signing identity, notarization profile, repository, and update feed before using them for this fork.
 
 `scripts/release.sh` builds a Release version, signs it with Developer ID, notarizes and staples it, and packages it into `dist/Compositor-<version>.dmg`.
 

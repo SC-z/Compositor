@@ -30,7 +30,7 @@ final class ProjectWorkspace {
             && s.gradientEdit == nil && s.pixelMove == nil && s.colorPicker == nil
     }
     init() {
-        let first = ProjectTab(name: "Untitled")
+        let first = ProjectTab(name: localized("Untitled"))
         first.session.skipsInitialClipboardCanvasSize = true
         tabs = [first]; selectedID = first.id
         first.controller.workspace = self
@@ -38,7 +38,7 @@ final class ProjectWorkspace {
     @discardableResult
     func addTab(reuseEmpty: Bool = true) -> ProjectTab {
         if reuseEmpty, tabs.count == 1, current.session.document == nil { return current }
-        let tab = ProjectTab(name: "Untitled \(nextNumber)")
+        let tab = ProjectTab(name: String(localized: "Untitled \(nextNumber)"))
         nextNumber += 1
         tab.controller.workspace = self; tab.controller.window = window
         tabs.append(tab); selectedID = tab.id

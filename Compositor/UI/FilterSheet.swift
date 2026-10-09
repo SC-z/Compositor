@@ -70,7 +70,7 @@ struct FilterSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Picker("Quality", selection: Binding(get: { settings.backgroundQuality },
                                                      set: { new in update { $0.backgroundQuality = new } })) {
-                    ForEach(BackgroundQuality.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                    ForEach(BackgroundQuality.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
                 }
                 .pickerStyle(.segmented).labelsHidden()
                 .help("Basic is quick; Advanced refines the mask against the layer's own detail, for hair and fur")
@@ -188,7 +188,7 @@ struct FilterSheet: View {
         Picker("Style", selection: Binding(get: { dither.style }, set: { new in update { $0.dither.style = new } })) {
             ForEach(DitherStyle.groups.indices, id: \.self) { group in
                 if group > 0 { Divider() }
-                ForEach(DitherStyle.groups[group], id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(DitherStyle.groups[group], id: \.self) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
             }
         }
         if dither.style.usesPixelSize {
@@ -227,7 +227,7 @@ struct FilterSheet: View {
         // A menu, like Style: the three choices as segments are wider than the panel, which then flips between
         // squeezing the row and wrapping it, resizing itself at every slider step.
         Picker("Colors", selection: Binding(get: { dither.colors }, set: { new in update { $0.dither.colors = new } })) {
-            ForEach(DitherColors.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            ForEach(DitherColors.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
         }
         .fixedSize()
         if dither.colors == .twoColors {
@@ -241,7 +241,7 @@ struct FilterSheet: View {
         }
         if dither.pixelSize > 1, dither.style.usesPixelSize {
             Picker("Pixel Shape", selection: Binding(get: { dither.pixelShape }, set: { new in update { $0.dither.pixelShape = new } })) {
-                ForEach(DitherPixelShape.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                ForEach(DitherPixelShape.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
             }
             .fixedSize()
             .help("Draw each chunky pixel as a solid square, or as a round dot like a dot-matrix screen")
@@ -278,7 +278,7 @@ struct FilterSheet: View {
         control("Black Level", \.scanlines.blackLevel, range: 0...100, unit: "%", decimals: 0, logarithmic: false)
             .help("How bright the lines are where the picture is black, so they show even over black")
         Picker("Colors", selection: Binding(get: { lines.colors }, set: { new in update { $0.scanlines.colors = new } })) {
-            ForEach(DitherColors.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+            ForEach(DitherColors.allCases, id: \.self) { Text(LocalizedStringKey($0.rawValue)).tag($0) }
         }
         .fixedSize()
         if lines.colors == .twoColors {
@@ -302,7 +302,7 @@ struct FilterSheet: View {
                 .contentShape(shape)
         }
         .buttonStyle(.plain)
-        .help(help)
+        .help(LocalizedStringKey(help))
     }
 
     private func flag(_ key: WritableKeyPath<FilterSettings, Bool>) -> Binding<Bool> {
@@ -330,7 +330,7 @@ struct FilterSheet: View {
         let step = pow(10, Double(decimals))
         let reset = { update { $0 = Self.resetting(key, in: $0) } }
         return HStack(spacing: 10) {
-            Text(title).fixedSize()
+            Text(LocalizedStringKey(title)).fixedSize()
                 .background(GeometryReader { Color.clear.preference(key: LabelWidthKey.self, value: $0.size.width) })
                 .frame(width: labelWidth, alignment: .leading)
                 .onTapGesture(count: 2) { if track != nil { reset() } }
@@ -347,7 +347,7 @@ struct FilterSheet: View {
                                       set: { value in update { $0[keyPath: key] = ((logarithmic ? exp(value) : value) * step).rounded() / step } }),
                        in: logarithmic ? log(range.lowerBound)...log(range.upperBound) : range)
             }
-            TextField(title, value: Binding(get: { settings[keyPath: key] }, set: { value in update { $0[keyPath: key] = value } }),
+            TextField(LocalizedStringKey(title), value: Binding(get: { settings[keyPath: key] }, set: { value in update { $0[keyPath: key] = value } }),
                       format: .number.precision(.fractionLength(0...decimals)))
                 .frame(width: 56).textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing)
                 .unitSuffix(unit)
@@ -395,7 +395,7 @@ struct GradientMapControls: View {
             .buttonStyle(.plain)
             .help("Choose the \(title.lowercased()) color")
             .accessibilityLabel("\(title) color")
-            Text(title)
+            Text(LocalizedStringKey(title))
         }
     }
 }

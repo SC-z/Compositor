@@ -132,7 +132,7 @@ struct ColorPickerSheet: View {
         return GridRow {
             Text(label).frame(width: 14, alignment: .leading)
                 .scrubbable(sensitivity: 1, value: channelValue, range: 0...255)
-            TextField(label, value: channelValue, format: .number)
+            TextField(LocalizedStringKey(label), value: channelValue, format: .number)
                 .frame(width: 52)
                 .arrowSteps(value: { Double(Int((color[keyPath: channel] * 255).rounded())) },
                             change: { newValue in
