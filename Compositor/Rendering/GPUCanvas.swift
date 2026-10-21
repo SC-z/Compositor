@@ -562,6 +562,9 @@ nonisolated enum GPUAdjustment {
                 .cropped(to: extent)
         }
         switch adjustment.kind {
+        case .colorLookup:
+            guard let lookup = adjustment.colorLookup else { return image }
+            return lookup.applying(to: image, settings: adjustment.resolvedLookupSettings, mapping: mapping.inverted())
         case .levels:
             guard !adjustment.levels.isIdentity else { return image }
             // Enough entries that stepping between them stays well under one 8-bit level.

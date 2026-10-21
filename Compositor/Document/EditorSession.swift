@@ -105,6 +105,8 @@ final class EditorSession {
     var document: CanvasDocument?
     var canvasFocusRequest = 0
     var showsSampleRing = true
+    var presetEdit: PresetEdit?
+    var presetLibrary = PresetLibrary.shared
     var adjustmentOriginal: LayerAdjustment?
     var adjustmentEditingID: UUID? { didSet { resumeFileRequests() } }
     /// The layer whose effects panel is open.

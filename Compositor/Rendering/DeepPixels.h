@@ -47,6 +47,8 @@ void deep_restore_alpha(uint16_t *rgba, size_t stride, const uint16_t *alpha, si
 // color cube. Operations whose channels mix (Hue/Saturation, Black & White) go this way rather than through the three
 // runs, which read each channel's result off that channel's own input alone.
 void deep_cube_apply(uint16_t *pixels, size_t stride, size_t width, size_t height, const float *cube, int dimension);
+void deep_cube_apply_domain(uint16_t *pixels, size_t stride, size_t width, size_t height, const float *cube, int dimension,
+                            const float *domain_min, const float *domain_max);
 
 // The brightest color channel in a half-float RGBA image (premultiplied, native-endian, 4 a pixel), unpremultiplied:
 // above 1 where it holds light brighter than white (an HDR image).

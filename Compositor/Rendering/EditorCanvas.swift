@@ -1749,6 +1749,10 @@ final class CanvasView: NSView {
         optionHeld = event.modifierFlags.contains(.option)
         window?.makeFirstResponder(self)
         guard session.document != nil, !session.isProjectBusy, !session.isImporting else { return }
+        if session.presetEdit != nil, !spaceHeld, session.tool != .hand, session.tool != .zoom {
+            FloatingPanelController.refocus(NSUserInterfaceItemIdentifier("presetsPanel"))
+            return
+        }
         let point = convert(event.locationInWindow, from: nil)
         if session.filterEdit?.samplesWhiteBalance == true, !spaceHeld, let document = session.document {
             session.sampleCameraRawWhiteBalance(at: session.viewport.documentPoint(from: point, documentSize: document.size))
@@ -2201,6 +2205,14 @@ final class CanvasView: NSView {
         let physicalKey = event.keyCode
         guard let event = ShortcutSettings.shared.canvasEvent(event) else { return }
         if handleKeyboardZoom(event) { return }
+        if session.presetEdit != nil {
+            if event.keyCode == 53 { session.finishPresetEditing(commit: false); return }
+            if [36, 76].contains(event.keyCode) { session.finishPresetEditing(commit: true); return }
+            if event.keyCode != 49 {
+                FloatingPanelController.refocus(NSUserInterfaceItemIdentifier("presetsPanel"))
+                return
+            }
+        }
         if event.keyCode == 53, textBoxAnchor != nil { textBoxAnchor = nil; textBoxRect = nil; needsDisplay = true; return }
         if event.keyCode == 53, session.textDraft != nil { session.cancelText(); return }
         // A drag session swallows the flagsChanged that says Option was let go, which left the canvas thinking it

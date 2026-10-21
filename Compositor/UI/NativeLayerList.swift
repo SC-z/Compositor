@@ -1006,7 +1006,7 @@ private final class LayerCell: NSTableCellView, NSTextFieldDelegate {
         thumbnailHeight.constant = layerSize.height
         let key = ThumbnailKey(image: layer.asset.map { ObjectIdentifier($0.thumbnail) }, transform: layer.transform, canvas: canvas, editableText: editableText)
         if layerID != layer.id || thumbnailKey != key {
-            thumbnail.image = layer.adjustment.map { Self.adjustmentIcon($0.kind.symbol, description: $0.kind.rawValue, quarterTurnClockwise: $0.kind == .curves) }
+            thumbnail.image = layer.adjustment.map { Self.adjustmentIcon($0.kind.symbol, description: $0.kind.title, quarterTurnClockwise: $0.kind == .curves) }
                 ?? (layer.isGroup ? Self.folderIcon
                     : editableText ? Self.adjustmentIcon("textformat", description: "Editable text")
                     : CanvasThumbnail.layer(layer.asset?.thumbnail, transform: layer.transform, canvas: canvas, box: 36))

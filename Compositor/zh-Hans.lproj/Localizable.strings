@@ -1025,3 +1025,139 @@
 "Automatically download and install updates in the future" = "以后自动下载并安装更新";
 "What’s new" = "更新内容";
 "CMYK – %@" = "CMYK — %@";
+"Language" = "语言";
+"Follow System" = "跟随系统";
+"Restart Required" = "需要重新启动";
+"Save your work, then quit and reopen Compositor to apply the language change." = "请先保存工程，再退出并重新打开 Compositor，使语言设置生效。";
+
+"Color Lookup (LUT)" = "预设";
+
+"Import LUT…" = "导入 LUT…";
+
+"Replace LUT…" = "替换 LUT…";
+
+"Replace LUT" = "替换 LUT";
+
+"The LUT is invalid or incomplete. The document has not been changed." = "LUT 文件无效或不完整。文档未改动。";
+
+"Choose a 3D .cube LUT with a size from 2 to 128. 1D and combined LUTs are not supported." = "请选择尺寸为 2 至 128 的三维 .cube LUT。不支持一维或混合 LUT。";
+
+"The LUT file exceeds the 128 MiB limit." = "LUT 文件超过 128 MiB 上限。";
+
+"New Color Lookup (LUT) Adjustment" = "新建预设图层";
+
+"Presets" = "预设";
+
+"Apply Preset" = "应用预设";
+
+"Change Preset" = "更换预设";
+
+"Add Presets…" = "添加预设…";
+
+"Add Preset Folder…" = "添加预设文件夹…";
+
+"Add Folder…" = "添加文件夹…";
+
+"Search presets" = "搜索预设";
+
+"Add .cube files or a folder to preview presets." = "添加 .cube 文件或文件夹，即可预览预设。";
+
+"No matching presets." = "没有匹配的预设。";
+
+"Previous preset" = "上一个预设";
+
+"Next preset" = "下一个预设";
+
+"Current Preset" = "原有预设";
+
+"Loading…" = "正在加载…";
+
+"Select a preset to preview it on the canvas." = "选择预设，画布会显示预览效果。";
+
+"Add up to 10,000 presets at a time." = "最多可添加 10,000 个预设。";
+
+"No .cube presets were found." = "未找到 .cube 预设文件。";
+
+"Trilinear" = "三线性";
+
+"Tetrahedral" = "四面体";
+
+"Interpolation" = "插值方式";
+
+"LUT input space" = "LUT 输入空间";
+
+"LUT output space" = "LUT 输出空间";
+
+"Linear sRGB" = "线性 sRGB";
+
+"Rec.709 / Gamma 2.2" = "Rec.709 / Gamma 2.2";
+
+"Rec.709 / Gamma 2.4" = "Rec.709 / Gamma 2.4";
+
+"Rec.709 / BT.709 curve" = "Rec.709 / BT.709 曲线";
+
+"Apple Log / Rec.2020" = "Apple Log / Rec.2020";
+
+"Apple Log 2 / Apple Wide Gamut" = "Apple Log 2 / Apple Wide Gamut";
+
+"F-Log2 / F-Gamut" = "F-Log2 / F-Gamut";
+
+"V-Log / V-Gamut" = "V-Log / V-Gamut";
+
+"Image is already in LUT input space" = "图像已处于 LUT 输入空间";
+
+"Only enable for images that retain the LUT's original encoded RGB values." = "仅当图像保留了 LUT 所需的原始编码 RGB 数值时启用。";
+
+"For ordinary photos, leave this off. Choose spaces from the LUT author's instructions; names are not detected automatically." = "普通照片请关闭此项。请按 LUT 作者说明选择色彩空间，软件不会根据文件名自动判断。";
+
+"Load 3D LUT…" = "加载 3D LUT…";
+
+"3D LUT File" = "3D LUT 文件";
+
+"Warm Filter" = "暖色滤镜";
+
+"Cool Filter" = "冷色滤镜";
+
+"Teal & Orange" = "青橙色调";
+
+"Bleach Bypass" = "漂白旁路";
+
+"Faded Film" = "褪色胶片";
+
+"Day for Night" = "日景变夜景";
+
+"Mono High Contrast" = "黑白高对比";
+
+"Cross Process" = "交叉冲洗";
+
+"This project retains its earlier color-space settings. Choosing another LUT uses PhotoCraft-compatible settings." = "此工程保留了原有色彩空间设置。选择其他 LUT 后，将采用与 PhotoCraft 一致的设置。";
+
+"This 3D LUT uses a custom input range. PhotoCraft-compatible presets require a 0–1 range." = "此 3D LUT 使用自定义输入范围。与 PhotoCraft 一致的预设模式仅接受 0–1 范围。";
+
+"LUT grid size must be an integer from 2 to 129." = "LUT 网格尺寸必须为 2 到 129 的整数。";
+
+"Select visible adjustment layers outside groups. Duplicate layer selections are not allowed." = "请选择组外可见的调整图层，不能重复选择同一图层。";
+
+"There are no visible adjustment layers outside groups to export." = "没有可导出的组外可见调整图层。";
+
+"Export LUT…" = "导出 LUT…";
+
+"Grid points" = "网格点数";
+
+"2–129; default 33" = "2–129，默认 33";
+
+"Export scope" = "导出范围";
+
+"All visible adjustment layers" = "所有可见调整图层";
+
+"Selected adjustment layers" = "所选调整图层";
+
+"Exports adjustment layers outside groups in document order. Masks and clipping are excluded; opacity and blend modes are included." = "按工程顺序导出组外调整图层。忽略蒙版和剪贴关系，保留不透明度和混合模式。";
+
+"Presets…" = "预设…";
+
+"Title" = "标题";
+"Choose a .cube, .3dl or .look LUT. 3D grid sizes from 2 to 129 are supported; combined 1D/3D tables are not." = "请选择 .cube、.3dl 或 .look LUT。支持 2–129 点三维网格，不支持一维与三维混合数据表。";
+
+"LUT export cannot include blur, grain or noise. Hide these layers or select only color adjustments:" = "LUT 无法包含模糊、颗粒或噪点。请隐藏以下图层，或仅选择调色图层：";
+"Blur, grain and noise cannot be exported as a LUT." = "模糊、颗粒和噪点无法导出为 LUT。";

@@ -254,9 +254,26 @@ import Testing
     /// Each adjustment over a photo, with a mask on it and at 80% opacity, on a canvas where the document fills the view
     /// one to one — so noise and grain land on the same pixels on both canvases.
     @Test(arguments: [AdjustmentKind.curves, .blackWhite, .colorBalance, .exposure, .gradientMap, .invert,
-                      .gaussianBlur, .motionBlur, .addNoise, .grain])
+                      .gaussianBlur, .motionBlur, .addNoise, .grain, .colorLookup])
     func matchesEveryAdjustment(kind: AdjustmentKind) throws {
         guard GPUCanvasRenderer.shared != nil else { return }
+        try matchesAdjustment(kind: kind)
+    }
+
+    @Test(arguments: [LUTInterpolation.trilinear, .tetrahedral])
+    func matchesLUTColorSpaces(interpolation: LUTInterpolation) throws {
+        _ = try #require(GPUCanvasRenderer.shared)
+        try matchesAdjustment(kind: .colorLookup, settings: LUTSettings(interpolation: interpolation,
+            inputSpace: .appleLog2, outputSpace: .gamma24))
+    }
+
+    @Test func matchesPhotoCraftLUTWithDither() throws {
+        _ = try #require(GPUCanvasRenderer.shared)
+        var settings = LUTSettings.standard; settings.dither = true; settings.interpolation = .tetrahedral
+        try matchesAdjustment(kind: .colorLookup, settings: settings)
+    }
+
+    private func matchesAdjustment(kind: AdjustmentKind, settings: LUTSettings? = nil) throws {
         let session = EditorSession()
         session.viewport.resize(to: CGSize(width: 600, height: 500), backingScale: 1, documentSize: nil)
         session.createDocument(width: 600, height: 500)
@@ -265,7 +282,9 @@ import Testing
         let small = try pattern(260, 200, seed: 5, alpha: true)
         session.insert(ImportedImage(image: small, thumbnail: small, name: "Top"))
         var adjustment = LayerAdjustment(kind: kind)
+        adjustment.lookupSettings = settings
         switch kind {
+        case .colorLookup: adjustment.colorLookup = try ColorLookup.parse(Data(ColorLookupTests.table(header: "DOMAIN_MIN -0.1 0 0\nDOMAIN_MAX 0.9 1 1", swap: true).utf8))
         case .curves: adjustment.curves.channels[0] = [CurvePoint(x: 0, y: 20), CurvePoint(x: 120, y: 170), CurvePoint(x: 255, y: 235)]
         case .colorBalance: adjustment.colorBalance.midCyanRed = 40; adjustment.colorBalance.shadowYellowBlue = -30
         case .exposure: adjustment.exposure.exposure = 0.8; adjustment.exposure.gamma = 1.2

@@ -154,7 +154,7 @@ import Testing
     }
 
     // Invert has no settings and so no editor; it is covered on its own.
-    @Test(arguments: AdjustmentKind.allCases.filter(\.isEditable))
+    @Test(arguments: AdjustmentKind.allCases.filter { $0.isEditable && $0 != .colorLookup })
     func sharedEditorsKeepPixelsDynamicAndSupportCancel(_ kind: AdjustmentKind) async throws {
         let fixtures = AdjustmentLayerTests()
         let session = EditorSession()
@@ -170,7 +170,7 @@ import Testing
         #expect(session.adjustmentOriginal?.kind == kind)
         #expect(!session.showsBusy)
         switch kind {
-        case .invert: return   // filtered out above: no editor to share
+        case .invert, .colorLookup: return   // filtered out above: no editor to share
         case .levels:
             let edit = try #require(session.levels)
             await edit.histogramTask?.value
@@ -230,7 +230,7 @@ import Testing
         session.adjustmentEditingID = id
         await session.beginAdjustmentEditing(id)
         switch kind {
-        case .invert: return   // filtered out above: nothing to reopen
+        case .invert, .colorLookup: return   // filtered out above: nothing to reopen
         case .levels:
             #expect(session.levels?.settings == saved.levels)
             session.updateLevels(LevelsSettings(), preview: true)

@@ -42,7 +42,7 @@ struct LayersPanel: View {
                 LayerMaskMenu(session: session)
                 Menu {
                     ForEach(AdjustmentKind.allCases, id: \.self) { kind in
-                        Button(localized(kind.rawValue)) { session.addAdjustment(kind) }
+                        Button(kind.title) { session.addAdjustment(kind) }
                     }
                 } label: { Image(systemName: "circle.lefthalf.filled").footerHitArea() }
                     .menuStyle(.borderlessButton).fixedSize().help("New adjustment layer").disabled(!session.layersLookEditable)

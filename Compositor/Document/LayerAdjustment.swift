@@ -6,7 +6,15 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
     case exposure = "Exposure", gradientMap = "Gradient Map", grain = "Grain", addNoise = "Add Noise"
     case gaussianBlur = "Gaussian Blur", motionBlur = "Motion Blur"
     case invert = "Invert"
+    case colorLookup = "Color Lookup (LUT)"
     case blackWhite = "Black & White", colorBalance = "Color Balance"
+    var title: String { localized(self == .colorLookup ? "Presets" : rawValue) }
+    var canExportLUT: Bool {
+        switch self {
+        case .gaussianBlur, .motionBlur, .grain, .addNoise: false
+        case .hsv, .levels, .curves, .exposure, .gradientMap, .invert, .colorLookup, .blackWhite, .colorBalance: true
+        }
+    }
     var symbol: String {
         switch self {
         case .curves: return "point.topleft.down.to.point.bottomright.curvepath"
@@ -21,10 +29,11 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
         case .invert: return "circle.righthalf.filled"
         case .blackWhite: return "circle.filled.pattern.diagonalline.rectangle"
         case .colorBalance: return "scale.3d"
+        case .colorLookup: return "cube"
         }
     }
     /// The filter panel that edits this kind; Levels and Hue/Saturation have panels of their own.
-    /// Every kind but Invert opens an editor when its layer is double-clicked.
+    /// Double-clicking a LUT opens the preset browser.
     var isEditable: Bool { self != .invert }
     var filterKind: FilterKind? {
         switch self {
@@ -38,12 +47,15 @@ nonisolated enum AdjustmentKind: String, Codable, CaseIterable, Sendable {
         case .motionBlur: return .motionBlur
         case .addNoise: return .addNoise
         // Hue/Saturation and Levels have panels of their own; Invert has nothing to set.
-        case .hsv, .levels, .invert: return nil
+        case .hsv, .levels, .invert, .colorLookup: return nil
         }
     }
 }
 nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
     var kind: AdjustmentKind
+    var colorLookup: ColorLookup?
+    var lookupSettings: LUTSettings?
+    var resolvedLookupSettings: LUTSettings { lookupSettings ?? LUTSettings() }
     var hue: Double = 0
     var saturation: Double = 0
     var lightness: Double = 0
@@ -127,6 +139,8 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
     }
     var isValid: Bool {
         hue.isFinite && saturation.isFinite && lightness.isFinite && abs(hue) <= 360 && abs(saturation) <= 100 && abs(lightness) <= 100
+        && (kind == .colorLookup ? (colorLookup?.isValid ?? (resolvedLookupSettings.photocraft == true)) : colorLookup == nil)
+        && (kind == .colorLookup || lookupSettings == nil)
         && resolvedHSV.adjustments.values.allSatisfy {
             $0.hue.isFinite && abs($0.hue) <= 360 && $0.saturation.isFinite && abs($0.saturation) <= 100
                 && $0.lightness.isFinite && abs($0.lightness) <= 100
@@ -154,6 +168,10 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
     /// Exposure exactly on HDR ones; through its color lookup when its channels mix; otherwise run several times and
     /// read between (`DeepLayer.run`).
     func applySixteenBit(_ image: CGImage, region: CGRect? = nil, scale: CGFloat = 1) throws -> CGImage {
+        if kind == .colorLookup {
+            guard let colorLookup else { return image }
+            return try colorLookup.apply(image, sixteenBit: true, settings: resolvedLookupSettings, region: region, scale: scale)
+        }
         if kind == .gaussianBlur || kind == .motionBlur { return try apply(image, region: region, scale: scale, sixteenBit: true) }
         if kind == .exposure, DeepLayer.isHDR(image) { return try DeepLayer.exposure(image, exposure) }
         if let lookup = sixteenBitLookup { return try DeepLayer.lookup(image, cube: lookup.cube, dimension: lookup.dimension) }
@@ -167,6 +185,9 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
             return try HueSaturationFilter.run(HueSaturationJob(image: image,
                 settings: resolvedHSV,
                 selection: nil, pixelToDocument: .identity, thumbnail: false)).image
+        case .colorLookup:
+            guard let colorLookup else { return image }
+            return try colorLookup.apply(image, sixteenBit: sixteenBit, settings: resolvedLookupSettings, region: region, scale: scale)
         case .levels: return try LevelsFilter.run(LevelsJob(image: image, settings: levels, selection: nil, mapping: .identity))
         case .curves: return try curves.apply(image)
         case .blackWhite: return try blackWhite.apply(image)
@@ -205,10 +226,18 @@ nonisolated struct LayerAdjustment: Codable, Equatable, Sendable {
 }
 
 extension EditorSession {
-    func addAdjustment(_ kind: AdjustmentKind) {
+    func addAdjustment(_ kind: AdjustmentKind, colorLookup: ColorLookup? = nil, lookupSettings: LUTSettings? = nil) {
         guard canEditLayers, let document, document.layers.count < 10_000 else { return }
-        var layer = ImageLayer(name: kind.rawValue, blankSize: document.size)
+        if kind == .colorLookup, colorLookup == nil {
+            beginPresetEditing()
+            return
+        }
+        let title = colorLookup?.title ?? ""
+        var layer = ImageLayer(name: title.isEmpty ? kind.rawValue : title, blankSize: document.size)
         var adjustment = LayerAdjustment(kind: kind)
+        adjustment.colorLookup = colorLookup
+        adjustment.lookupSettings = lookupSettings
+        guard adjustment.isValid else { return }
         // A new Gradient Map runs from the foreground to the background color, as in Photoshop;
         // each Grain layer gets a pattern of its own.
         if kind == .gradientMap {
@@ -224,8 +253,8 @@ extension EditorSession {
         if let parent = layer.parentID { collapsedGroupIDs.remove(parent) }
         activeLayerID = layer.id
         endEdit()
-        // Invert has nothing to set, so the new layer just applies rather than opening an editor.
-        if kind.isEditable { adjustmentEditingID = layer.id }
+        // LUTs have already been chosen; Invert has nothing to set.
+        if kind.isEditable && kind != .colorLookup { adjustmentEditingID = layer.id }
     }
     func updateAdjustment(_ id: UUID, value: LayerAdjustment) {
         guard let index = document?.layers.firstIndex(where: { $0.id == id }), value.isValid else { return }

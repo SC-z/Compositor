@@ -17,7 +17,7 @@ extension UTType {
 
 nonisolated struct ProjectManifest: Codable, Sendable {
     /// The format version new saves write.
-    static let current = 14
+    static let current = 17
     /// Every version `load` accepts. The package-header check, the manifest check and the error
     /// message all read this, so they cannot drift apart when `current` is bumped.
     static let supported = 1...ProjectManifest.current
@@ -49,6 +49,7 @@ nonisolated struct ProjectLayerRecord: Codable, Sendable {
     var maskEnabled: Bool? = nil
     var maskSourceID: UUID? = nil
     var adjustment: LayerAdjustment? = nil
+    var colorLookupFile: String? = nil
     /// A mask moved apart from its layer: where it sits on the document.
     var maskPlacement: LayerTransform? = nil
     /// Nil (older projects) is linked.
@@ -88,6 +89,18 @@ actor ProjectStore {
 
     func save(_ snapshot: ProjectSnapshot, to url: URL, quickLook: QuickLookImages? = nil) throws {
         try validate(snapshot.manifest)
+        var manifest = snapshot.manifest
+        var lookups: [String: FileWrapper] = [:]
+        let lookupEncoder = JSONEncoder()
+        lookupEncoder.outputFormatting = [.withoutEscapingSlashes]
+        for index in manifest.layers.indices {
+            if let lookup = manifest.layers[index].adjustment?.colorLookup {
+                let filename = "\(manifest.layers[index].id.uuidString).json"
+                lookups[filename] = FileWrapper(regularFileWithContents: try lookupEncoder.encode(lookup))
+                manifest.layers[index].colorLookupFile = filename
+                manifest.layers[index].adjustment?.colorLookup = nil
+            }
+        }
         var images: [String: FileWrapper] = [:]
         var pixels = 0, maskPixels = 0
         for layer in snapshot.manifest.layers {
@@ -115,12 +128,13 @@ actor ProjectStore {
         }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let metadata = try encoder.encode(snapshot.manifest)
+        let metadata = try encoder.encode(manifest)
         guard metadata.count <= 4 * 1024 * 1024 else { throw ProjectError.tooLarge }
         var contents = [
             "manifest.json": FileWrapper(regularFileWithContents: metadata),
             "images": FileWrapper(directoryWithFileWrappers: images)
         ]
+        if !lookups.isEmpty { contents["lookups"] = FileWrapper(directoryWithFileWrappers: lookups) }
         // Quick Look's Space-bar preview reads this by name; loading ignores it.
         if let quickLook {
             contents["QuickLook"] = FileWrapper(directoryWithFileWrappers: [
@@ -155,7 +169,7 @@ actor ProjectStore {
         guard try url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { throw ProjectError.invalid }
         let metadataURL = url.appendingPathComponent("manifest.json")
         try checkFile(metadataURL, inside: url, maximumBytes: 4 * 1024 * 1024)
-        let manifest: ProjectManifest
+        var manifest: ProjectManifest
         let metadata = try Data(contentsOf: metadataURL)
         let header: Header
         do { header = try JSONDecoder().decode(Header.self, from: metadata) }
@@ -164,6 +178,20 @@ actor ProjectStore {
         guard ProjectManifest.supported.contains(header.version) else { throw ProjectError.version(header.version) }
         do { manifest = try JSONDecoder().decode(ProjectManifest.self, from: metadata) }
         catch { throw ProjectError.invalid }
+        var lookupBytes = 0
+        for index in manifest.layers.indices {
+            guard let filename = manifest.layers[index].colorLookupFile else { continue }
+            let layer = manifest.layers[index]
+            guard manifest.version >= 15, filename == "\(layer.id.uuidString).json",
+                  layer.adjustment?.kind == .colorLookup, layer.adjustment?.colorLookup == nil else { throw ProjectError.invalid }
+            let file = url.appendingPathComponent("lookups").appendingPathComponent(filename)
+            try checkFile(file, inside: url, maximumBytes: 48 * 1024 * 1024)
+            let data = try Data(contentsOf: file)
+            lookupBytes += data.count
+            guard lookupBytes <= 192 * 1024 * 1024 else { throw ProjectError.tooLarge }
+            do { manifest.layers[index].adjustment?.colorLookup = try JSONDecoder().decode(ColorLookup.self, from: data) }
+            catch { throw ProjectError.invalid }
+        }
         try validate(manifest)
         var images: [UUID: ImportedImage] = [:]
         var masks: [UUID: ImportedImage] = [:]
@@ -219,7 +247,20 @@ actor ProjectStore {
         }
         guard (1...DocumentLimits.maxSide).contains(manifest.width), (1...DocumentLimits.maxSide).contains(manifest.height),
               manifest.layers.count <= 10_000 else { throw ProjectError.tooLarge }
+        var lookupBytes = 0
         for layer in manifest.layers {
+            if let settings = layer.adjustment?.lookupSettings, settings.photocraft != nil || settings.dither != nil,
+               manifest.version < 17 { throw ProjectError.invalid }
+            if layer.adjustment?.colorLookup?.dimension == 129, manifest.version < 17 { throw ProjectError.invalid }
+            if layer.adjustment?.lookupSettings != nil, manifest.version < 16 { throw ProjectError.invalid }
+            if let filename = layer.colorLookupFile {
+                guard filename == "\(layer.id.uuidString).json", layer.adjustment?.kind == .colorLookup else { throw ProjectError.invalid }
+            }
+            if let lookup = layer.adjustment?.colorLookup {
+                guard manifest.version >= 15 else { throw ProjectError.invalid }
+                lookupBytes += lookup.cube.count
+                guard lookupBytes <= 128 * 1024 * 1024 else { throw ProjectError.tooLarge }
+            }
             if layer.shape?.smoothing == true {
                 guard manifest.version >= 14 else { throw ProjectError.invalid }
             }

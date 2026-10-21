@@ -4,6 +4,10 @@ extension EditorSession {
     /// Uses the ordinary color editors, but sends their changes to layer metadata.
     /// The source is only for the histogram and sampling; it never replaces layer pixels.
     func beginAdjustmentEditing(_ id: UUID) async {
+        if adjustmentEditingID == id, document?.layers.first(where: { $0.id == id })?.adjustment?.kind == .colorLookup {
+            beginPresetEditing(id)
+            return
+        }
         guard adjustmentEditingID == id, adjustmentOriginal == nil,
               levels == nil, hueSaturation == nil, filterEdit == nil,
               let snapshot = projectSnapshot(),
@@ -23,7 +27,7 @@ extension EditorSession {
             let asset = ImportedImage(image: raster.image, thumbnail: try PixelAdjust.thumbnail(of: raster.image), name: "Adjustment input")
             let layer = ImageLayer(asset: asset, origin: .zero)
             switch original.kind {
-            case .invert: break
+            case .invert, .colorLookup: break
             case .levels:
                 let edit = try LevelsEdit(layer: layer, selection: nil)
                 edit.settings = original.levels
@@ -68,7 +72,7 @@ extension EditorSession {
         guard var value = adjustmentOriginal else { return nil }
         switch value.kind {
         // Nothing to carry back: Invert has no settings.
-        case .invert: break
+        case .invert, .colorLookup: break
         case .levels:
             guard let levels else { return nil }
             value.levels = levels.settings
@@ -108,6 +112,7 @@ extension EditorSession {
     /// OK keeps editable settings; Cancel (including the window close button) restores them.
     @discardableResult
     func finishAdjustmentEditing(commit: Bool) -> Bool {
+        if presetEdit != nil { return finishPresetEditing(commit: commit) }
         guard let id = adjustmentEditingID, let original = adjustmentOriginal else { return false }
         updateAdjustment(id, value: commit ? (editedAdjustment ?? original) : original)
         levels?.previewTask?.cancel()

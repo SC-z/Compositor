@@ -168,6 +168,11 @@ void deep_restore_alpha(uint16_t *rgba, size_t stride, const uint16_t *alpha, si
 }
 
 void deep_cube_apply(uint16_t *pixels, size_t stride, size_t width, size_t height, const float *cube, int dimension) {
+    deep_cube_apply_domain(pixels, stride, width, height, cube, dimension, NULL, NULL);
+}
+
+void deep_cube_apply_domain(uint16_t *pixels, size_t stride, size_t width, size_t height, const float *cube, int dimension,
+                            const float *domain_min, const float *domain_max) {
     const float scale = (dimension - 1) / 65535.0f;
     const size_t dy = dimension, dz = (size_t)dimension * dimension;
     const size_t sx = 4, sy = dy * 4, sz = dz * 4;
@@ -181,6 +186,10 @@ void deep_cube_apply(uint16_t *pixels, size_t stride, size_t width, size_t heigh
                 int lo[3];
                 for (int channel = 0; channel < 3; ++channel) {
                     float position = fminf(65535, p[channel] * 65535.0f / alpha) * scale;
+                    if (domain_min && domain_max) {
+                        float value = (p[channel] / alpha - domain_min[channel]) / (domain_max[channel] - domain_min[channel]);
+                        position = fminf(1, fmaxf(0, value)) * (dimension - 1);
+                    }
                     lo[channel] = (int)position;
                     if (lo[channel] > dimension - 2) lo[channel] = dimension - 2;
                     fraction[channel] = position - lo[channel];

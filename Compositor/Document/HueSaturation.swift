@@ -451,12 +451,14 @@ extension EditorSession {
         return canAdjust(allowingEmpty: true)
     }
     var canAdjustColors: Bool { canAdjust(allowingEmpty: false) }
-    private func canAdjust(allowingEmpty: Bool) -> Bool {
+    var canApplyPresets: Bool { hueSaturation == nil && canAdjust(allowingEmpty: false, allowingMask: true) }
+    private func canAdjust(allowingEmpty: Bool, allowingMask: Bool = false) -> Bool {
         _ = showsBusy
         // Text being edited is drawn by its editor, not the layer, so a filter's preview of it would be wrong: commit it first.
-        guard levels == nil, filterEdit == nil, textDraft == nil, document != nil, let layer = activeLayer, !isProjectBusy, !isImporting, brushStroke == nil,
+        guard levels == nil, filterEdit == nil, presetEdit == nil, textDraft == nil, document != nil, let layer = activeLayer, !isProjectBusy, !isImporting, brushStroke == nil,
               pixelMove == nil, renamingLayerID == nil, !showsNewDocument, !showsImporter,
-              selectedLayerIDs.count == 1, !layer.isGroup, !isMaskSelected, layer.asset != nil || allowingEmpty,
+              selectedLayerIDs.count == 1, !layer.isGroup || (allowingMask && isMaskSelected),
+              isMaskSelected ? (allowingMask && layer.mask?.isEnabled == true) : (layer.asset != nil || allowingEmpty),
               document?.effectiveVisibleIDs.contains(layer.id) == true, selection?.isEmpty != true else { return false }
         return true
     }

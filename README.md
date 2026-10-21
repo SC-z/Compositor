@@ -90,11 +90,11 @@ brew install --cask robbietilton-compositor
 
 ## Translations
 
-This compatibility build includes Simplified Chinese in `Compositor/zh-Hans.lproj/Localizable.strings`. The interface follows the app's preferred language; choose Simplified Chinese for Compositor in macOS Language & Region settings. Project format values, font names, and user content keep their original values. Upstream does not currently accept translation pull requests.
+This compatibility build includes Simplified Chinese in `Compositor/zh-Hans.lproj/Localizable.strings`. Use **Compositor > Language** to choose **Follow System**, **简体中文**, or **English**. Save your work, then quit and reopen the app for the change to take effect. The choice applies only to Compositor; Follow System removes its language override. Project format values, font names, and user content keep their original values. Upstream does not currently accept translation pull requests.
 
 ## Upstream sync
 
-This fork includes upstream 1.5.3 (`365b574`), including 16-bit layers, HDR/EXR, CMYK import and export, Progressive Blur, and the Camera Raw updates. Simplified Chinese and the macOS 15 deployment target are retained. RAW Highlight Recovery requires macOS 26 and a supported camera; its control is disabled on macOS 15. New saves use project format 14, which older builds cannot open; keep a copy before saving an older project with this version.
+This fork includes upstream 1.5.3 (`365b574`), including 16-bit layers, HDR/EXR, CMYK import and export, Progressive Blur, and the Camera Raw updates. Simplified Chinese and the macOS 15 deployment target are retained. RAW Highlight Recovery requires macOS 26 and a supported camera; its control is disabled on macOS 15. New saves use project format 17, which older builds cannot open; keep a copy before saving an older project with this version.
 
 ## Building
 
@@ -132,3 +132,17 @@ It needs, all kept outside this repository:
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+### 预设（LUT）
+
+本轮按 [PhotoCraft](https://github.com/storytold/photocraft/tree/04d0212c7a1006b00f6ec9dd144affc98f8e7d83) 的 LUT 功能对齐，沿用 Compositor 的工程、选区和撤销系统。入口为 **图层 → 新建调整图层 → 预设**；**图像 → 预设**则把效果直接应用到当前图层像素或选中的蒙版。创建预设调整图层时，当前选区会转成该图层的蒙版。
+
+预设面板提供“加载 3D LUT”“无”和 8 个内置预设：暖色、冷色、青橙、漂白旁路、褪色胶片、日景变夜景、黑白高对比、交叉冲洗。可用滚轮或上下键切换内置预设并实时预览。插值可选三线性或四面体，并有抖动开关。默认无预设、三线性、抖动关闭。确认保留结果；取消或关闭面板恢复原状。
+
+支持三维 `.cube`（2–129）、一维 `.cube`（转换为 33³）、`.3dl` 和 `.look`。与 PhotoCraft 一样，新导入的三维 LUT 要求默认 0–1 输入范围；不接受组合的一维／三维数据表。一维 LUT 的输入范围会在转换时处理。`.3dl` 的输入采样行按线性处理，输出整数位深按最大值推断。文件上限为 128 MiB，数据必须有限且在 ±65,504 内。
+
+**文件 → 导出 LUT**可将全部或所选的组外可见调整图层导出为 `.cube`，网格点数为 2–129（默认 33）。按工程图层顺序计算，保留不透明度和混合模式，忽略蒙版与剪贴关系；照片、文字和组内调整不进入 LUT。模糊、颗粒和噪点无法表示为 LUT；导出范围包含这些图层时会提示错误，请隐藏它们或仅选择调色图层。
+
+本轮不添加输入／输出色彩空间推测，也不显示此前扩展的 Log 设置。已有工程的自定义输入范围和色彩转换仍按原效果读取；在旧预设图层中选择另一份 LUT 后，转用 PhotoCraft 对齐模式。LUT 数据继续内嵌工程，移动原文件不影响已保存的效果。新工程格式为 **17**，仍可读取 1–16；旧版程序不能打开新保存的工程。
+
+详细的对齐范围、测试与宿主差异见 [LUT 能力对齐说明](docs/lut-photocraft-parity.md)。移植部分采用 PhotoCraft 的 MIT 许可，许可文本随源码和应用分发。

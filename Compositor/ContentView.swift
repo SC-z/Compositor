@@ -13,6 +13,7 @@ struct ContentView: View {
     @State private var adjustmentPanel = FloatingPanelController(name: "adjustmentPanel")
     @State private var selectionAmountPanel = FloatingPanelController(name: "selectionAmountPanel")
     @State private var colorRangePanel = FloatingPanelController(name: "colorRangePanel")
+    @State private var presetsPanel = FloatingPanelController(name: "presetsPanel")
     @State private var filterPanel = FloatingPanelController(name: "filterPanel")
     @State private var effectsPanel = FloatingPanelController(name: "effectsPanel")
     @State private var isDropTargeted = false
@@ -224,8 +225,15 @@ struct ContentView: View {
         }
     }
 
-    var body: some View {
+    private var editorWithPanels: some View {
         editorChrome
+        .onChange(of: session.presetEdit == nil) { _, closed in
+            if closed { presetsPanel.close() }
+            else {
+                presetsPanel.onClose = { session.finishPresetEditing(commit: false) }
+                presetsPanel.show(title: "Presets", content: PresetsPanel(session: session))
+            }
+        }
         .onChange(of: session.levels == nil) { _, closed in
             if closed { levelsPanel.close() }
             else {
@@ -278,6 +286,10 @@ struct ContentView: View {
                                  placement: placement)
             }
         }
+    }
+
+    var body: some View {
+        editorWithPanels
         .onChange(of: session.document == nil) { _, empty in
             if !empty { session.canvasFocusRequest += 1 }
         }

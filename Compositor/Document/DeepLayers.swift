@@ -232,14 +232,20 @@ nonisolated enum DeepLayer {
     /// A color lookup (`cube`, `dimension`³ RGBA floats as Core Image's color cube) applied to 16-bit pixels, smoothly
     /// between its points. For operations whose channels mix (Hue/Saturation, Black & White, Color Balance, Gradient
     /// Map): `run` reads each channel's result off its own input, which they don't follow, and they came out banded.
-    static func lookup(_ deep: CGImage, cube: Data, dimension: Int) throws -> CGImage {
-        if isHDR(deep) { return try normalizing(deep) { try lookup($0, cube: cube, dimension: dimension) } }
+    static func lookup(_ deep: CGImage, cube: Data, dimension: Int, domain: ([Float], [Float])? = nil) throws -> CGImage {
+        if isHDR(deep) { return try normalizing(deep) { try lookup($0, cube: cube, dimension: dimension, domain: domain) } }
+        if let domain, domain.0.count != 3 || domain.1.count != 3 { throw ExportError.render }
         guard cube.count >= dimension * dimension * dimension * 4 * MemoryLayout<Float>.size else { throw ExportError.render }
         let context = try canonical(deep)
         guard let data = context.data else { throw ExportError.render }
         cube.withUnsafeBytes { raw in
-            deep_cube_apply(data.assumingMemoryBound(to: UInt16.self), context.bytesPerRow, deep.width, deep.height,
-                            raw.assumingMemoryBound(to: Float.self).baseAddress!, Int32(dimension))
+            if let domain {
+                deep_cube_apply_domain(data.assumingMemoryBound(to: UInt16.self), context.bytesPerRow, deep.width, deep.height,
+                                       raw.assumingMemoryBound(to: Float.self).baseAddress!, Int32(dimension), domain.0, domain.1)
+            } else {
+                deep_cube_apply(data.assumingMemoryBound(to: UInt16.self), context.bytesPerRow, deep.width, deep.height,
+                                raw.assumingMemoryBound(to: Float.self).baseAddress!, Int32(dimension))
+            }
         }
         guard let result = context.makeImage() else { throw ExportError.render }
         return result

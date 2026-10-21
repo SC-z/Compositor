@@ -94,10 +94,11 @@ final class DocumentHistory {
         [asset.image, asset.thumbnail] + (asset.deep.map { [$0] } ?? [])
     }
 
-    /// Bytes retained only by history, excluding images in the live document.
+    /// Bytes retained only by history, excluding images and lookup tables in the live document.
     func retainedBytes(current: CanvasDocument?) -> Int {
         var seen = Set<ObjectIdentifier>()
         for layer in current?.layers ?? [] {
+            if let lookup = layer.adjustment?.colorLookup { seen.insert(ObjectIdentifier(lookup)) }
             for asset in [layer.asset, layer.mask?.asset].compactMap({ $0 }) {
                 for image in Self.images(of: asset) { seen.insert(ObjectIdentifier(image)) }
             }
@@ -106,6 +107,7 @@ final class DocumentHistory {
         for entry in past + future {
             for snapshot in [entry.before, entry.after] {
                 for layer in snapshot.document?.layers ?? [] {
+                    if let lookup = layer.adjustment?.colorLookup, seen.insert(ObjectIdentifier(lookup)).inserted { bytes += lookup.cube.count }
                     for asset in [layer.asset, layer.mask?.asset].compactMap({ $0 }) {
                         for image in Self.images(of: asset) where seen.insert(ObjectIdentifier(image)).inserted {
                             bytes += image.bytesPerRow * image.height

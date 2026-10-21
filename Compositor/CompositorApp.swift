@@ -6,6 +6,8 @@ import Sparkle
 struct CompositorApp: App {
     @NSApplicationDelegateAdaptor(CompositorApplicationDelegate.self) private var applicationDelegate
     @AppStorage("navigator.visible") private var showsNavigator = false
+    @State private var interfaceLanguage = InterfaceLanguage.selected(
+        in: UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? ""))
     private var session: EditorSession { applicationDelegate.session }
     var body: some Scene {
         Window("Compositor", id: "editor") {
@@ -91,6 +93,8 @@ struct CompositorApp: App {
                         .configuredKeyboardShortcut("w", modifiers: [.command, .option, .shift])
                         .disabled(session.document == nil || !applicationDelegate.projects.canStart)
                     Divider()
+                    Button("Export LUT…") { Task { await applicationDelegate.projects.exportLUT() } }
+                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
                     Button("Close Project") {
                         if let window = applicationDelegate.projects.window {
                             Task { await applicationDelegate.projects.close(window) }
@@ -101,6 +105,13 @@ struct CompositorApp: App {
                 Group {
                     CommandGroup(after: .appInfo) {
                         Button("Check for Updates…") { applicationDelegate.updater.checkForUpdates() }
+                        Menu("Language") {
+                            ForEach(InterfaceLanguage.allCases, id: \.self) { language in
+                                Toggle(isOn: Binding(get: { interfaceLanguage == language }, set: { selected in
+                                    if selected { changeLanguage(to: language) }
+                                })) { Text(verbatim: language.title) }
+                            }
+                        }
                     }
                     CommandGroup(after: .toolbar) {
                         Button("Search Commands…") {
@@ -302,6 +313,8 @@ struct CompositorApp: App {
                         Button("\(localized(kind.rawValue))…") { session.beginFilter(kind) }
                             .disabled(!session.canAdjustColors || session.hueSaturation != nil)
                     }
+                    Button("Presets…") { session.beginPixelPresets() }
+                        .disabled(!session.canApplyPresets)
                     Button(session.isMaskSelected ? "Invert Mask" : "Invert") { Task { await session.invertPixels() } }
                         .configuredKeyboardShortcut("i")
                         .disabled(!session.canInvert)
@@ -341,7 +354,7 @@ struct CompositorApp: App {
                 CommandMenu("Layer") {
                     Menu("New Adjustment Layer") {
                         ForEach(AdjustmentKind.allCases, id: \.self) { kind in
-                            Button(localized(kind.rawValue) + (kind.isEditable ? "…" : "")) { session.addAdjustment(kind) }
+                            Button(kind.title + (kind.isEditable ? "…" : "")) { session.addAdjustment(kind) }
                         }
                     }.disabled(!session.canEditLayers || session.document == nil)
                     Button("Edit Adjustment…") {
@@ -393,6 +406,17 @@ struct CompositorApp: App {
                         .disabled(!session.canEditLayers || session.activeLayer == nil)
                 }
             }
+    }
+
+    private func changeLanguage(to language: InterfaceLanguage) {
+        guard language != interfaceLanguage else { return }
+        language.apply(to: .standard)
+        interfaceLanguage = language
+        let alert = NSAlert()
+        alert.messageText = localized("Restart Required")
+        alert.informativeText = localized("Save your work, then quit and reopen Compositor to apply the language change.")
+        alert.addButton(withTitle: localized("OK"))
+        alert.runModal()
     }
 
     /// View › CMYK › Profile › Load Profile: a CMYK ICC profile picked from anywhere, kept and chosen.
