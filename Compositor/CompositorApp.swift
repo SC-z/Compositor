@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Sparkle
 
 @main
@@ -78,12 +79,12 @@ struct CompositorApp: App {
                         .configuredKeyboardShortcut("s", modifiers: [.command, .shift])
                         .disabled(session.document == nil || !applicationDelegate.projects.canStart)
                     Divider()
-                    Button("Export PNG…") { Task { await applicationDelegate.projects.exportPNG() } }
-                        .configuredKeyboardShortcut("e", modifiers: [.command, .shift])
-                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
                     // Export As on JPEG.
                     Button("Export JPEG…") { Task { await applicationDelegate.projects.exportAs(start: .jpeg) } }
                         .configuredKeyboardShortcut("s", modifiers: [.command, .option, .shift])
+                        .disabled(session.document == nil || !applicationDelegate.projects.canStart)
+                    Button("Export PNG…") { Task { await applicationDelegate.projects.exportPNG() } }
+                        .configuredKeyboardShortcut("e", modifiers: [.command, .shift])
                         .disabled(session.document == nil || !applicationDelegate.projects.canStart)
                     // PNG, JPEG or PDF, sized and previewed; ⌥⇧⌘W, as Photoshop's Export As.
                     Button("Export As…") { Task { await applicationDelegate.projects.exportAs() } }
@@ -99,7 +100,7 @@ struct CompositorApp: App {
                 // Grouped: a commands builder takes at most ten items.
                 Group {
                     CommandGroup(after: .appInfo) {
-                        Button("Check for Updates…") { applicationDelegate.updater.checkForUpdates(nil) }
+                        Button("Check for Updates…") { applicationDelegate.updater.checkForUpdates() }
                     }
                     CommandGroup(after: .toolbar) {
                         Button("Search Commands…") {
@@ -136,6 +137,28 @@ struct CompositorApp: App {
                         Toggle("Show Transform Controls", isOn: Binding(get: { session.showsTransformControls },
                                                                           set: { session.showsTransformControls = $0 }))
                             .configuredKeyboardShortcut("h").disabled(session.tool != .move || session.document == nil)
+                        Divider()
+                        // Print: the canvas as the chosen CMYK profile will print it, tucked in a submenu as few need it. No
+                        // shortcuts (Photoshop's ⌘Y sits by ⌘U and would be hit by mistake); Search Commands finds them.
+                        Menu("CMYK") {
+                            Toggle("Proof Colors", isOn: Binding(get: { session.proofsColors }, set: { session.proofsColors = $0 }))
+                                .assignableShortcut("CMYK Proof Colors")
+                                .disabled(session.document == nil)
+                            Toggle("Gamut Warning", isOn: Binding(get: { session.showsGamutWarning },
+                                                                  set: { session.showsGamutWarning = $0 }))
+                                .assignableShortcut("CMYK Gamut Warning")
+                                .disabled(session.document == nil)
+                            Divider()
+                            Menu("Profile") {
+                                let current = session.proofProfile ?? CMYK.chosen
+                                ForEach(CMYK.installed()) { profile in
+                                    Toggle(profile.name, isOn: Binding(get: { current?.name == profile.name },
+                                                                       set: { if $0 { session.proofProfile = profile } }))
+                                }
+                                Divider()
+                                Button("Load Profile…") { loadCMYKProfile() }
+                            }
+                        }
                         Group {
                             Divider()
                             Menu("Show") {
@@ -198,7 +221,10 @@ struct CompositorApp: App {
                     Button("Copy Merged") { session.copyMergedSelection() }
                         .configuredKeyboardShortcut("c", modifiers: [.command, .shift]).disabled(!session.canCopyMerged)
                     Button("Paste") {
-                        if NSApp.keyWindow?.firstResponder is NSTextView { NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil) }
+                        // On the New canvas screen an image on the clipboard makes the canvas, even with a size field
+                        // being typed in; a size copied as text still goes into the field.
+                        if session.canPasteImageAsNewCanvas { Task { await session.pasteImageAsNewCanvas() } }
+                        else if NSApp.keyWindow?.firstResponder is NSTextView { NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil) }
                         else if applicationDelegate.workspace.pasteCopiedLayer() { }
                         else if session.canPaste { session.paste() }
                         else { NSSound.beep() }
@@ -367,5 +393,15 @@ struct CompositorApp: App {
                         .disabled(!session.canEditLayers || session.activeLayer == nil)
                 }
             }
+    }
+
+    /// View › CMYK › Profile › Load Profile: a CMYK ICC profile picked from anywhere, kept and chosen.
+    private func loadCMYKProfile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "icc") ?? .data, UTType(filenameExtension: "icm") ?? .data]
+        panel.message = localized("Choose a CMYK ICC profile, such as the one your printer gave you")
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { session.proofProfile = try CMYK.load(url) }
+        catch { session.importError = error.localizedDescription }
     }
 }

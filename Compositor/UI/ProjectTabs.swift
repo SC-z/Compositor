@@ -55,6 +55,8 @@ struct ProjectTabStrip: View {
     private let dragTimer = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
     /// The "New" drop slot's own natural width, measured once it appears.
     @State private var dropSlotWidth: CGFloat = 0
+    /// A drag over the bar is headed for a new project: over the "New" slot or anywhere on the bar that isn't a tab.
+    @State private var newTargeted = false
     /// A tab being reordered by drag, if any.
     @State private var reorder: TabReorderState?
     /// Mirrors the width `GeometryReader` offers `body`, for gesture handlers — they run outside a body
@@ -64,7 +66,9 @@ struct ProjectTabStrip: View {
     @State private var slotWidth: CGFloat = 0
 
     private func widths() -> [UUID: CGFloat] {
-        Dictionary(uniqueKeysWithValues: workspace.tabs.map { ($0.id, projectTabPillWidth($0, active: workspace.selectedID == $0.id)) })
+        Dictionary(uniqueKeysWithValues: workspace.tabs.map {
+            ($0.id, projectTabPillWidth($0, active: workspace.selectedID == $0.id, closable: workspace.canClose($0)))
+        })
     }
     private func overflow(availableWidth: CGFloat) -> ProjectTabOverflow {
         projectTabOverflow(order: workspace.tabs.map(\.id), widths: widths(), selectedID: workspace.selectedID,
@@ -92,6 +96,10 @@ struct ProjectTabStrip: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(height: 34, alignment: .leading)
+            // The whole bar opens a drop in a new project, not just the small "New" slot; a tab, under the pointer,
+            // takes the drop itself.
+            .onDrop(of: [UTType.fileURL.identifier, UTType.image.identifier, ProjectWorkspace.layerType], delegate:
+                ProjectTabDropDelegate(workspace: workspace, destination: nil, targeted: $newTargeted))
             .onAppear { slotWidth = proxy.size.width }
             .onChange(of: proxy.size.width) { _, new in slotWidth = new }
         }
@@ -107,7 +115,7 @@ struct ProjectTabStrip: View {
             }
             ForEach(layout.visible) { slot in tabView(for: slot, contentWidth: contentWidth) }
             if dragging {
-                NewTabDropSlot(workspace: workspace)
+                NewTabDropSlot(workspace: workspace, targeted: $newTargeted)
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { dropSlotWidth = $0 }
                     .offset(x: layout.contentWidth + projectTabSpacing, y: 3)
             }
@@ -212,9 +220,9 @@ private func projectTabLabelWidth(_ tab: ProjectTab, active: Bool) -> CGFloat {
     return min(155, max(35, ceil(titleWidth) + dotWidth))
 }
 
-private func projectTabPillWidth(_ tab: ProjectTab, active: Bool) -> CGFloat {
-    // 11 px leading, 8 px trailing, 16 px close button, 5 px after close.
-    projectTabLabelWidth(tab, active: active) + 40
+private func projectTabPillWidth(_ tab: ProjectTab, active: Bool, closable: Bool) -> CGFloat {
+    // 11 px leading, 8 px trailing, 16 px close button, 5 px after close; with no close button, 11 px each side.
+    projectTabLabelWidth(tab, active: active) + (closable ? 40 : 22)
 }
 
 /// Sized the same way the tab pills are: text measured at the same weight, plus the chevron and padding.
@@ -242,7 +250,8 @@ private struct TitleBarDragArea: NSViewRepresentable {
 
 private struct NewTabDropSlot: View {
     let workspace: ProjectWorkspace
-    @State private var targeted = false
+    /// Shared with the bar around it, which takes the same drop, so the slot lights up wherever on the bar it's headed.
+    @Binding var targeted: Bool
     var body: some View {
         Label("New", systemImage: "plus")
             .font(.system(size: 12, weight: .medium))
@@ -341,7 +350,7 @@ private struct ProjectTabButton: View {
                     Text(tab.title).font(.system(size: 12, weight: active ? .semibold : .medium)).lineLimit(1)
                 }
                 .frame(width: projectTabLabelWidth(tab, active: active), alignment: .leading)
-                .padding(.leading, 11).padding(.trailing, 8)
+                .padding(.leading, 11).padding(.trailing, workspace.canClose(tab) ? 8 : 11)
                 .frame(height: 28)
                 .contentShape(Rectangle())
             }
@@ -353,13 +362,16 @@ private struct ProjectTabButton: View {
             .simultaneousGesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
                 .onChanged { onReorder(.changed($0.translation.width)) }
                 .onEnded { onReorder(.ended($0.translation.width)) })
-            Button { Task { await workspace.close(tab.id) } } label: {
-                Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
-                    .frame(width: 16, height: 28)
-                    .padding(.trailing, 5)
-                    .contentShape(Rectangle())
-            }.buttonStyle(.plain).help("Close \(tab.title)").disabled(!workspace.canSwitch)
-                .accessibilityLabel("Close \(tab.title)")
+            // The only tab, still blank, has nothing to close: no button, and the pill closes up around its name.
+            if workspace.canClose(tab) {
+                Button { Task { await workspace.close(tab.id) } } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+                        .frame(width: 16, height: 28)
+                        .padding(.trailing, 5)
+                        .contentShape(Rectangle())
+                }.buttonStyle(.plain).help("Close \(tab.title)").disabled(!workspace.canSwitch)
+                    .accessibilityLabel("Close \(tab.title)")
+            }
         }
         .frame(height: 28)
         .background(targeted ? Color.accentColor.opacity(0.3) : Color.white.opacity(active ? 0.12 : 0.035), in: Capsule())

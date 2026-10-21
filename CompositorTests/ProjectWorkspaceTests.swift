@@ -69,6 +69,25 @@ import Testing
         #expect(source.session.document?.layers.first?.id == id)
     }
 
+    /// The only tab, still blank, doesn't close: it would only be replaced. New tabs take the lowest free Untitled
+    /// number, so closing the last project gives "Untitled" again rather than counting up (issue #231).
+    @Test func untitledNumbersStayLowAndTheBlankTabStays() async {
+        let workspace = ProjectWorkspace()
+        let first = workspace.current
+        #expect(first.title == localized("Untitled") && !workspace.canClose(first))
+        await workspace.close(first.id)
+        #expect(workspace.tabs.count == 1 && workspace.current === first && first.title == localized("Untitled"))
+
+        first.session.createDocument(width: 10, height: 10)
+        #expect(workspace.canClose(first))
+        let second = workspace.addTab(), third = workspace.addTab()
+        #expect(second.title == String(localized: "Untitled \(2)") && third.title == String(localized: "Untitled \(3)"))
+        workspace.removeTab(second.id)
+        #expect(workspace.addTab().title == String(localized: "Untitled \(2)"), "the lowest free number")
+        for tab in workspace.tabs { workspace.removeTab(tab.id) }
+        #expect(workspace.tabs.count == 1 && workspace.current.title == localized("Untitled"), "the last tab closed leaves Untitled")
+    }
+
     @Test func tabsKeepIndependentDocumentsAndUndo() throws {
         let workspace = ProjectWorkspace()
         let first = workspace.current
@@ -107,6 +126,26 @@ import Testing
         #expect(first.session.document?.layers.count == 1)
         second.session.redo()
         #expect(second.session.document?.layers.first?.id == copied.id)
+    }
+
+    /// A layer dragged into a new project tab makes a canvas its own size, with it filling it, not the size of the
+    /// canvas it came from.
+    @Test func aLayerDraggedIntoANewTabSizesTheCanvasToIt() async throws {
+        let workspace = ProjectWorkspace()
+        let first = workspace.current
+        first.session.createDocument(width: 400, height: 300)
+        let context = try #require(CGContext(data: nil, width: 120, height: 80, bitsPerComponent: 8, bytesPerRow: 480,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setFillColor(red: 1, green: 0, blue: 0, alpha: 1)
+        context.fill(CGRect(x: 0, y: 0, width: 120, height: 80))
+        let image = try #require(context.makeImage())
+        first.session.insert(ImportedImage(image: image, thumbnail: image, name: "Red"), centeredAt: CGPoint(x: 300, y: 100))
+        let original = try #require(first.session.activeLayerID)
+        await workspace.copyLayer(original, into: nil)
+        let created = workspace.current
+        #expect(created !== first)
+        #expect(created.session.document?.size == CGSize(width: 120, height: 80))
+        #expect(created.session.document?.layers.first?.transform.origin == .zero)
     }
 
     @Test func dockCreatesTabsAndTargetedImportUsesExistingTab() async throws {

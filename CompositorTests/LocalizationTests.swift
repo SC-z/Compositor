@@ -6,7 +6,7 @@ import Testing
 struct LocalizationTests {
     @Test func translatedBlendTitleKeepsItsStoredValue() throws {
         let session = EditorSession()
-        session.createDocument(width: 16, height: 16)
+        session.createDocument(width: 16, height: 16, emptyLayer: true)
         let coordinator = BlendModePicker(session: session).makeCoordinator()
         let button = NSPopUpButton(frame: .zero, pullsDown: false)
         button.addItem(withTitle: "正片叠底")

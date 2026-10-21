@@ -14,6 +14,15 @@ struct ShapeControls: View {
             }
             .pickerStyle(.segmented).labelsHidden().fixedSize()
             .help("Shift-U (or Tab) steps through Rectangle, Ellipse and Line")
+            Button { session.openColorPicker(background: false) } label: {
+                let swatch = RoundedRectangle(cornerRadius: 3, style: .continuous)
+                swatch.fill(Color(nsColor: session.foregroundColor.nsColor))
+                    .overlay { swatch.strokeBorder(.black.opacity(0.5), lineWidth: 1) }
+                    .frame(width: 36, height: 18)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Fill color")
+            .help("Shapes fill with the foreground color; click to change it")
             if session.shapeKind == .line {
                 HStack(spacing: 6) {
                     Text("Width").scrubbable(sensitivity: 1, value: $session.shapeLineWidth, range: 1...5000)
@@ -44,17 +53,13 @@ struct ShapeControls: View {
                         .unitSuffix("px")
                 }
                 .help("Round the rectangle's corners by this many pixels; 0 keeps them square")
-            }
-            HStack(spacing: 6) {
-                Text("Fill")
-                Button { session.openColorPicker(background: false) } label: {
-                    let swatch = RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    swatch.fill(Color(nsColor: session.foregroundColor.nsColor))
-                        .overlay { swatch.strokeBorder(.black.opacity(0.5), lineWidth: 1) }
-                        .frame(width: 36, height: 18)
-                }
-                .buttonStyle(.plain)
-                .help("Shapes fill with the foreground color; click to change it")
+                Toggle("Smooth Corners", isOn: $session.shapeSmoothing)
+                    .toggleStyle(.checkbox)
+                    .fixedSize()
+                    .disabled(session.shapeCornerRadius <= 0)
+                    .help(session.shapeCornerRadius <= 0
+                          ? "Set a radius above 0 to use smooth corners."
+                          : "Use smooth squircle corners at 60% smoothing, matching Figma's iOS setting")
             }
             Spacer(minLength: 0)
         }

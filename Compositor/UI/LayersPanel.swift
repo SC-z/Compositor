@@ -4,7 +4,9 @@ struct LayersPanel: View {
     @Bindable var session: EditorSession
     /// Dragging the panel's left edge sets it, within `widths`.
     var width: CGFloat = 252
-    static let widths: ClosedRange<Double> = 202...352
+    /// No narrower than the footer: its icons can't shrink, and a footer wider than the panel pushed everything in
+    /// it out past both edges, over the edge that resizes it.
+    static let widths: ClosedRange<Double> = 222...352
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -39,6 +41,12 @@ struct LayersPanel: View {
                     .help("Group selected layers (⌘G)").accessibilityLabel("New folder").disabled(!session.layersLookEditable)
                 LayerMaskMenu(session: session)
                 Menu {
+                    ForEach(AdjustmentKind.allCases, id: \.self) { kind in
+                        Button(localized(kind.rawValue)) { session.addAdjustment(kind) }
+                    }
+                } label: { Image(systemName: "circle.lefthalf.filled").footerHitArea() }
+                    .menuStyle(.borderlessButton).fixedSize().help("New adjustment layer").disabled(!session.layersLookEditable)
+                Menu {
                     ForEach(LayerEffectKind.allCases, id: \.self) { kind in
                         Button(localized(kind.rawValue) + "…") { session.addEffect(kind) }
                     }
@@ -46,12 +54,6 @@ struct LayersPanel: View {
                     .menuStyle(.borderlessButton).fixedSize()
                     .help("Add layer effect").accessibilityLabel("Layer effects")
                     .accessibilityIdentifier("layerEffects").disabled(!session.layersLookEditable || session.activeLayer?.isGroup != false || session.activeLayer?.asset == nil)
-                Menu {
-                    ForEach(AdjustmentKind.allCases, id: \.self) { kind in
-                        Button(localized(kind.rawValue)) { session.addAdjustment(kind) }
-                    }
-                } label: { Image(systemName: "circle.lefthalf.filled").footerHitArea() }
-                    .menuStyle(.borderlessButton).fixedSize().help("New adjustment layer").disabled(!session.layersLookEditable)
                 Spacer()
                 Button { session.deleteLayerOrMask() } label: { FooterIcon(systemName: "trash") }
                     .help(session.selectedEffect != nil ? "Delete selected effect" : session.isMaskSelected ? "Delete layer mask" : session.selectedLayerIDs.count > 1 ? "Delete selected layers" : "Delete selected layer")

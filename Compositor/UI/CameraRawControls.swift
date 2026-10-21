@@ -21,7 +21,9 @@ struct CameraRawControls: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.trailing, 20)
             }
+            .padding(.trailing, -20)
             .frame(maxHeight: .infinity)
         }
         .frame(maxHeight: .infinity, alignment: .top)
@@ -136,16 +138,46 @@ struct CameraRawControls: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(section.rawValue)
                 Spacer(minLength: 0)
-                if section == .light, raw.adjustsLight { eye(shown: session.filterEdit?.showsCameraRawLight ?? true, name: "Light", group: .light) }
-                if section == .color, raw.adjustsColor { eye(shown: session.filterEdit?.showsCameraRawColor ?? true, name: "Color", group: .color) }
-                if section == .effects, raw.adjustsEffects { eye(shown: session.filterEdit?.showsCameraRawEffects ?? true, name: "Effects", group: .effects) }
-                if section == .curve, raw.adjustsCurve { eye(shown: session.filterEdit?.showsCameraRawCurve ?? true, name: "Curve", group: .curve) }
-                if section == .colorMixer, raw.adjustsMixer { eye(shown: session.filterEdit?.showsCameraRawMixer ?? true, name: "Color Mixer", group: .mixer) }
-                if section == .colorGrading, raw.adjustsGrading { eye(shown: session.filterEdit?.showsCameraRawGrading ?? true, name: "Color Grading", group: .grading) }
-                if section == .detail, raw.adjustsDetail { eye(shown: session.filterEdit?.showsCameraRawDetail ?? true, name: "Detail", group: .detail) }
-                if section == .optics, raw.adjustsOptics { eye(shown: session.filterEdit?.showsCameraRawOptics ?? true, name: "Optics", group: .optics) }
-                if section == .geometry, raw.adjustsGeometry { eye(shown: session.filterEdit?.showsCameraRawGeometry ?? true, name: "Geometry", group: .geometry) }
-                if section == .calibration, raw.adjustsCalibration { eye(shown: session.filterEdit?.showsCameraRawCalibration ?? true, name: "Calibration", group: .calibration) }
+                if section == .light, raw.adjustsLight {
+                    eye(shown: session.filterEdit?.showsCameraRawLight ?? true, name: "Light", group: .light)
+                    resetButton(section.group)
+                }
+                if section == .color, raw.adjustsColor {
+                    eye(shown: session.filterEdit?.showsCameraRawColor ?? true, name: "Color", group: .color)
+                    resetButton(section.group)
+                }
+                if section == .effects, raw.adjustsEffects {
+                    eye(shown: session.filterEdit?.showsCameraRawEffects ?? true, name: "Effects", group: .effects)
+                    resetButton(section.group)
+                }
+                if section == .curve, raw.adjustsCurve {
+                    eye(shown: session.filterEdit?.showsCameraRawCurve ?? true, name: "Curve", group: .curve)
+                    resetButton(section.group)
+                }
+                if section == .colorMixer, raw.adjustsMixer {
+                    eye(shown: session.filterEdit?.showsCameraRawMixer ?? true, name: "Color Mixer", group: .mixer)
+                    resetButton(section.group)
+                }
+                if section == .colorGrading, raw.adjustsGrading {
+                    eye(shown: session.filterEdit?.showsCameraRawGrading ?? true, name: "Color Grading", group: .grading)
+                    resetButton(section.group)
+                }
+                if section == .detail, raw.adjustsDetail {
+                    eye(shown: session.filterEdit?.showsCameraRawDetail ?? true, name: "Detail", group: .detail)
+                    resetButton(section.group)
+                }
+                if section == .optics, raw.adjustsOptics {
+                    eye(shown: session.filterEdit?.showsCameraRawOptics ?? true, name: "Optics", group: .optics)
+                    resetButton(section.group)
+                }
+                if section == .geometry, raw.adjustsGeometry {
+                    eye(shown: session.filterEdit?.showsCameraRawGeometry ?? true, name: "Geometry", group: .geometry)
+                    resetButton(section.group)
+                }
+                if section == .calibration, raw.adjustsCalibration {
+                    eye(shown: session.filterEdit?.showsCameraRawCalibration ?? true, name: "Calibration", group: .calibration)
+                    resetButton(section.group)
+                }
             }
             if expanded.contains(section) {
                 switch section {
@@ -292,6 +324,17 @@ struct CameraRawControls: View {
         .accessibilityLabel(shown ? "Hide \(name)" : "Show \(name)")
     }
 
+    /// Puts an adjusted section back to its defaults.
+    private func resetButton(_ group: CameraRawGroup) -> some View {
+        Button { session.resetCameraRaw(group) } label: {
+            Image(systemName: "arrow.counterclockwise")
+        }
+        .buttonStyle(.borderless)
+        .disabled(session.filterEdit?.committing == true)
+        .help("Reset \(localized(group.rawValue)) to its defaults")
+        .accessibilityLabel("Reset \(localized(group.rawValue))")
+    }
+
     private func slider(_ title: String, _ key: WritableKeyPath<CameraRawSettings, Double>, range: ClosedRange<Double>,
                         decimals: Int, clipping: CameraRawClipping?, track: CameraRawSliderTrack = .plain,
                         reset resetValue: Double = 0, help: String) -> some View {
@@ -382,5 +425,19 @@ struct CameraRawControls: View {
         case geometry = "Geometry"
         case calibration = "Calibration"
         var id: String { rawValue }
+        var group: CameraRawGroup {
+            switch self {
+            case .light: return .light
+            case .color: return .color
+            case .colorGrading: return .grading
+            case .effects: return .effects
+            case .curve: return .curve
+            case .colorMixer: return .mixer
+            case .detail: return .detail
+            case .optics: return .optics
+            case .geometry: return .geometry
+            case .calibration: return .calibration
+            }
+        }
     }
 }

@@ -50,12 +50,13 @@ struct CameraRawTests {
         #expect(!FilterKind.cameraRaw.isImageAdjustment)
     }
 
-    @Test func exposureAddsOneStopAndContrastPivotsAroundMidGray() throws {
+    /// Exposure and Contrast as Photoshop's Camera Raw Filter draws them: the numbers are its own, measured.
+    @Test func exposureAndContrastMatchPhotoshop() throws {
         let input = try gray()
         var settings = CameraRawSettings()
         settings.exposure = 1
         let brighter = try pixels(settings.apply(input))[0]
-        #expect(abs(brighter[0] - 176) <= 2, "+1 stop: \(brighter)")
+        #expect(abs(brighter[0] - 181) <= 2, "+1 stop: \(brighter)")
         #expect(brighter[0] == brighter[1] && brighter[1] == brighter[2])
         let translucent = try gray(alpha: 0.5)
         #expect(try pixels(settings.apply(translucent))[0][3] == pixels(translucent)[0][3])
@@ -69,10 +70,10 @@ struct CameraRawTests {
         settings = CameraRawSettings()
         settings.contrast = 100
         let pushed = try pixels(settings.apply(pair))
-        #expect(pushed[0][0] < 10 && pushed[1][0] > 250, "contrast +100 drives the pair apart: \(pushed)")
+        #expect(abs(pushed[0][0] - 36) <= 3 && abs(pushed[1][0] - 213) <= 3, "contrast +100 drives the pair apart: \(pushed)")
         settings.contrast = -100
         let flat = try pixels(settings.apply(pair))
-        #expect(abs(flat[0][0] - 128) <= 2 && abs(flat[1][0] - 128) <= 2, "contrast −100 meets at mid gray: \(flat)")
+        #expect(abs(flat[0][0] - 88) <= 3 && abs(flat[1][0] - 174) <= 3, "contrast −100 draws them together: \(flat)")
     }
 
     @Test func tonalSlidersMoveTheEndTheyName() throws {
@@ -85,14 +86,15 @@ struct CameraRawTests {
         var settings = CameraRawSettings()
         settings.highlights = -100
         let recovered = try pixels(settings.apply(brightAndMid))
-        #expect(recovered[0][0] < 200, "highlights −100 darkens the bright tone: \(recovered[0])")
-        #expect(abs(recovered[1][0] - 128) <= 2, "and leaves mid gray: \(recovered[1])")
+        // Photoshop: 230 → 209, mid gray kept.
+        #expect(recovered[0][0] < 222, "highlights −100 darkens the bright tone: \(recovered[0])")
+        #expect(abs(recovered[1][0] - 128) <= 4, "and leaves mid gray: \(recovered[1])")
 
         settings = CameraRawSettings()
         settings.whites = 100
         let clipped = try pixels(settings.apply(brightAndMid))
         #expect(clipped[0][0] == 255, "whites +100 clips the bright tone: \(clipped[0])")
-        #expect(abs(clipped[1][0] - 128) <= 2, "not the midtone: \(clipped[1])")
+        #expect(clipped[1][0] > 128, "and lifts the midtone with it, as in Photoshop: \(clipped[1])")
         let viz = try pixels(settings.apply(brightAndMid, clipping: .highlights))
         #expect(viz[0] == [255, 255, 255, 255] && viz[1] == [0, 0, 0, 255], "highlight clipping is not the grade: \(viz)")
 
@@ -105,14 +107,15 @@ struct CameraRawTests {
         settings = CameraRawSettings()
         settings.shadows = 100
         let opened = try pixels(settings.apply(darkAndMid))
-        #expect(opened[0][0] > 50, "shadows +100 opens the dark tone: \(opened[0])")
-        #expect(abs(opened[1][0] - 128) <= 2, "and leaves mid gray: \(opened[1])")
+        // Photoshop: 20 → 33, mid gray kept.
+        #expect(opened[0][0] > 22, "shadows +100 opens the dark tone: \(opened[0])")
+        #expect(abs(opened[1][0] - 128) <= 6, "and leaves mid gray: \(opened[1])")
 
         settings = CameraRawSettings()
         settings.blacks = -100
         let crushed = try pixels(settings.apply(darkAndMid))
-        #expect(crushed[0][0] < 20, "blacks −100 crushes the dark tone: \(crushed[0])")
-        #expect(abs(crushed[1][0] - 128) <= 2)
+        #expect(crushed[0][0] == 0, "blacks −100 crushes the dark tone: \(crushed[0])")
+        #expect(abs(crushed[1][0] - 91) <= 3, "and darkens the midtone, as in Photoshop: \(crushed[1])")
         let shadowViz = try pixels(settings.apply(darkAndMid, clipping: .shadows))
         #expect(shadowViz[0] == [0, 0, 0, 255] && shadowViz[1] == [255, 255, 255, 255], "shadow clipping is not the grade: \(shadowViz)")
     }
@@ -127,6 +130,64 @@ struct CameraRawTests {
         settings.tint = 100
         let magenta = try pixels(settings.apply(input))[0]
         #expect(magenta[1] < 128 && magenta[1] < magenta[0] && magenta[1] < magenta[2], "magenta lowers green: \(magenta)")
+    }
+
+    /// Temperature, Tint and Vibrance as Photoshop's Camera Raw Filter draws them, its own measured numbers. They were
+    /// once a few percent either way, a fraction of Photoshop's strength (issue #252).
+    @Test func whiteBalanceAndVibranceMatchPhotoshop() throws {
+        func applied(_ red: Int, _ green: Int, _ blue: Int, _ adjust: (inout CameraRawSettings) -> Void) throws -> [Int] {
+            var settings = CameraRawSettings()
+            adjust(&settings)
+            return Array(try pixels(settings.apply(image(red: CGFloat(red) / 255, green: CGFloat(green) / 255,
+                                                         blue: CGFloat(blue) / 255)))[0].prefix(3))
+        }
+        func near(_ got: [Int], _ expected: [Int]) -> Bool { zip(got, expected).allSatisfy { abs($0 - $1) <= 4 } }
+        let cases: [(String, [Int], (inout CameraRawSettings) -> Void, [Int])] = [
+            ("temperature +100", [128, 128, 128], { $0.temperature = 100 }, [235, 189, 117]),
+            ("temperature −50", [128, 128, 128], { $0.temperature = -50 }, [102, 146, 210]),
+            ("tint +100", [128, 128, 128], { $0.tint = 100 }, [159, 125, 215]),
+            ("tint −100", [128, 128, 128], { $0.tint = -100 }, [98, 198, 120]),
+            ("vibrance +100 spares skin", [153, 107, 107], { $0.vibrance = 100 }, [167, 98, 98]),
+            ("vibrance +100 fills a dull cyan", [107, 153, 153], { $0.vibrance = 100 }, [0, 160, 160]),
+            ("vibrance −100", [92, 92, 230], { $0.vibrance = -100 }, [164, 164, 210]),
+        ]
+        for (name, input, adjust, expected) in cases {
+            let got = try applied(input[0], input[1], input[2], adjust)
+            #expect(near(got, expected), "\(name): \(got), Photoshop \(expected)")
+        }
+    }
+
+    /// The Color Mixer, Calibration, the parametric curve and both vignettes as Photoshop's Camera Raw Filter draws them:
+    /// its own measured numbers.
+    @Test func mixerCalibrationCurveAndVignettesMatchPhotoshop() throws {
+        func applied(_ input: [Int], _ adjust: (inout CameraRawSettings) -> Void) throws -> [Int] {
+            var settings = CameraRawSettings()
+            adjust(&settings)
+            let source = try image(red: CGFloat(input[0]) / 255, green: CGFloat(input[1]) / 255, blue: CGFloat(input[2]) / 255)
+            return Array(try pixels(settings.apply(source))[0].prefix(3))
+        }
+        func near(_ got: [Int], _ expected: [Int]) -> Bool { zip(got, expected).allSatisfy { abs($0 - $1) <= 4 } }
+        let cases: [(String, [Int], (inout CameraRawSettings) -> Void, [Int])] = [
+            ("orange saturation −60", [230, 115, 0], { $0.mixer.saturation[1] = -60 }, [189, 130, 107]),
+            ("red hue +60", [230, 92, 92], { $0.mixer.hue[0] = 60 }, [227, 125, 83]),
+            ("blue luminance +60", [92, 92, 230], { $0.mixer.luminance[5] = 60 }, [142, 142, 248]),
+            ("blue primary saturation −60", [92, 92, 230], { $0.calibration.blueSaturation = -60 }, [149, 149, 226]),
+            ("red primary hue +60", [230, 92, 92], { $0.calibration.redHue = 60 }, [228, 118, 37]),
+            ("darks −60", [130, 130, 130], { $0.curve.darks = -60 }, [101, 101, 101]),
+        ]
+        for (name, input, adjust, expected) in cases {
+            let got = try applied(input, adjust)
+            #expect(near(got, expected), "\(name): \(got), Photoshop \(expected)")
+        }
+        // Vignettes on mid gray, 3:2, at a corner: the lens correction brightens it to 223, the post-crop one at −60
+        // darkens it to 30.
+        let wide = try image(width: 300, height: 200, red: 128 / 255, green: 128 / 255, blue: 128 / 255)
+        var lens = CameraRawSettings()
+        lens.optics.vignetteAmount = 100
+        #expect(abs(try pixels(lens.apply(wide))[0][0] - 223) <= 6)
+        var postCrop = CameraRawSettings()
+        postCrop.vignetteAmount = -60
+        #expect(abs(try pixels(postCrop.apply(wide))[0][0] - 30) <= 6)
     }
 
     @Test func vibranceFavorsDullColorsAndProtectsSkinWhileSaturationDoesNot() throws {
@@ -155,7 +216,8 @@ struct CameraRawTests {
         let blueAfter = try chroma(pixels(settings.apply(blue))[0])
         let redRatio = Double(redAfter) / Double(redBefore)
         let blueRatio = Double(blueAfter) / Double(blueBefore)
-        #expect(abs(redRatio - 2) < 0.15 && abs(blueRatio - 2) < 0.15, "saturation doubles both: \(redRatio), \(blueRatio)")
+        // Photoshop doubles chroma in linear light, which is a little less in sRGB values, and less again for blue.
+        #expect(abs(redRatio - 1.85) < 0.15 && abs(blueRatio - 1.73) < 0.15, "saturation raises both: \(redRatio), \(blueRatio)")
     }
 
     @Test func eyedropperAndAutoNeutralizeAWarmPixel() throws {
@@ -280,7 +342,7 @@ struct CameraRawTests {
         await session.commitFilter()
         #expect(session.history.undoCount == count + 1 && session.history.undoName == "Camera Raw Filter")
         let baked = try pixels(try #require(session.activeLayer?.asset?.image))[0]
-        #expect(abs(baked[0] - 176) <= 2, "OK bakes the grade: \(baked)")
+        #expect(abs(baked[0] - 181) <= 2, "OK bakes the grade: \(baked)")
     }
 
     /// OK stores the grade the eye left in the layer. A hidden slider must not come back on the next open.
@@ -373,21 +435,29 @@ struct CameraRawTests {
         #expect(softGap < hardGap, "negative clarity pulls the step together: \(softGap) vs \(hardGap)")
     }
 
+    /// Dehaze takes away, or adds, the haze of a picture's brightest part: a shadow under a pale sky deepens or lifts.
+    /// A picture of one color has no haze to find, and Photoshop leaves it be.
     @Test func dehazeDeepensOrLiftsAndKeepsAlpha() throws {
-        let dark = try image(red: 30 / 255, green: 30 / 255, blue: 30 / 255)
-        let pale = try image(red: 180 / 255, green: 150 / 255, blue: 150 / 255)
+        let context = try BrushRaster.context(width: 10, height: 10, mask: false)
+        context.setFillColor(CGColor(srgbRed: 200 / 255, green: 195 / 255, blue: 190 / 255, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 10, height: 5))
+        context.setFillColor(CGColor(srgbRed: 30 / 255, green: 30 / 255, blue: 30 / 255, alpha: 1))
+        context.fill(CGRect(x: 0, y: 5, width: 10, height: 5))
+        let skyAndShadow = try #require(context.makeImage())
+        let index = try #require(try pixels(skyAndShadow).firstIndex { $0[0] == 30 })
         var settings = CameraRawSettings()
         settings.dehaze = 100
-        let deepened = try pixels(settings.apply(dark))[0]
-        #expect(deepened[0] < 30, "positive dehaze darkens a shadow: \(deepened)")
-        let paleBefore = try pixels(pale)[0]
-        let paleAfter = try pixels(settings.apply(pale))[0]
-        #expect(chroma(paleAfter) > chroma(paleBefore), "and raises saturation: \(paleBefore) → \(paleAfter)")
+        let deepened = try pixels(settings.apply(skyAndShadow))[index]
+        #expect(deepened[0] < 30, "positive dehaze deepens the shadow: \(deepened)")
         settings.dehaze = -100
-        let lifted = try pixels(settings.apply(dark))[0]
-        #expect(lifted[0] > 30, "negative dehaze lifts a shadow: \(lifted)")
-        let faded = try pixels(settings.apply(pale))[0]
-        #expect(chroma(faded) < chroma(paleBefore), "and lowers saturation: \(faded)")
+        let lifted = try pixels(settings.apply(skyAndShadow))[index]
+        #expect(lifted[0] > 30, "negative dehaze lifts it: \(lifted)")
+        let pale = try image(red: 180 / 255, green: 150 / 255, blue: 150 / 255)
+        for amount in [100.0, -100.0] {
+            settings.dehaze = amount
+            let kept = try pixels(settings.apply(pale))[0]
+            #expect(kept == [180, 150, 150, 255], "one color is left be at \(amount): \(kept)")
+        }
         let translucent = try image(red: 30 / 255, green: 30 / 255, blue: 30 / 255, alpha: 0.5)
         let translucentAlpha = try pixels(translucent)[0][3]
         settings.dehaze = 100
@@ -510,6 +580,18 @@ struct CameraRawTests {
         let scope = try #require(CameraRawScope.make(red))
         let hottest = scope.vectorscope.enumerated().max { $0.element < $1.element }?.offset ?? 0
         #expect(hottest % CameraRawScope.scopeSide > CameraRawScope.scopeSide / 2, "red sits on the right of the vectorscope")
+    }
+
+    @Test func scopeSamplingChangesAtFourMegapixelsWithoutChangingColors() throws {
+        // The C kernel divides rows among 16 bands, rounding each band's sample count up.
+        for (width, height, count) in [(2000, 2000, 256_000), (2001, 2000, 64_256)] {
+            let red = try image(width: width, height: height, red: 1, green: 0, blue: 0)
+            let scope = try #require(CameraRawScope.make(red))
+            #expect(scope.red[255] == Double(count))
+            #expect(scope.green[0] == Double(count) && scope.blue[0] == Double(count))
+            #expect(scope.red.reduce(0, +) == Double(count))
+            #expect(scope.vectorscope.reduce(0, +) == Double(count))
+        }
     }
 
     @Test func curveMixerAndGradingChangeOnlyTheirOwnTones() throws {
@@ -763,6 +845,79 @@ struct CameraRawTests {
     /// Shadows and Highlights keep tones in order: a gray ramp from black to white still rises after either at ±100,
     /// with black and white where they were. Shadows +100 once lifted black to middle gray, above the tones over it,
     /// and lifted dark areas broke into blotches of color.
+    /// Shadows adapts to the picture as Photoshop's does, measured on a made-up landscape (value noise over seven octaves
+    /// from a fixed seed: a cloudy sky brightening upward over dark textured ground) against Photoshop's own renders of
+    /// exactly these pictures. A picture under about 1020 pixels on its long side gets Photoshop's gentler treatment of
+    /// small pictures, which ours follows less closely.
+    @Test func shadowsAdaptsToThePictureAsPhotoshopDoes() throws {
+        struct Noise {
+            var state: UInt64
+            mutating func unit() -> Double {
+                state = state &* 6364136223846793005 &+ 1442695040888963407
+                return Double(state >> 11) / Double(1 << 53)
+            }
+        }
+        func field(_ width: Int, _ height: Int, seed: UInt64) -> [Double] {
+            var out = [Double](repeating: 0, count: width * height), noise = Noise(state: seed), amplitude = 1.0, total = 0.0
+            for octave in 0..<7 {
+                let cell = max(1, max(width, height) >> (octave + 2)), gw = width / cell + 2, gh = height / cell + 2
+                let grid = (0..<(gw * gh)).map { _ in noise.unit() }
+                for y in 0..<height { for x in 0..<width {
+                    let fx = Double(x) / Double(cell), fy = Double(y) / Double(cell), x0 = Int(fx), y0 = Int(fy)
+                    let tx = fx - Double(x0), ty = fy - Double(y0)
+                    let top = grid[y0 * gw + x0] * (1 - tx) + grid[y0 * gw + x0 + 1] * tx
+                    let bottom = grid[(y0 + 1) * gw + x0] * (1 - tx) + grid[(y0 + 1) * gw + x0 + 1] * tx
+                    out[y * width + x] += amplitude * (top * (1 - ty) + bottom * ty)
+                } }
+                total += amplitude
+                amplitude *= 0.6
+            }
+            return out.map { $0 / total }
+        }
+        func landscape(width: Int) throws -> CGImage {
+            let height = width * 2 / 3
+            let clouds = field(width, height, seed: 1), lay = field(width, height, seed: 2)
+            let context = try #require(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                                 space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                                 bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+            let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
+            // Memory row 0 is the top of the picture. The horizon wanders with the second field.
+            for y in 0..<height { for x in 0..<width {
+                let i = y * width + x
+                let horizon = Double(height) * (0.5 + 0.25 * (lay[x] - 0.5))
+                let sky = 140 + 80 * (1 - Double(y) / horizon) + 60 * (clouds[i] - 0.5)
+                let ground = 4 + 70 * pow(clouds[i], 2.2) + 20 * (lay[i] - 0.5)
+                let value = UInt8(max(0, min(255, (Double(y) < horizon ? sky : ground).rounded())))
+                bytes[i * 4] = value; bytes[i * 4 + 1] = value; bytes[i * 4 + 2] = value; bytes[i * 4 + 3] = 255
+            } }
+            return try #require(context.makeImage())
+        }
+        /// The bottom fifth's mean, all ground, and the top fifth's, all sky.
+        func means(_ image: CGImage) throws -> (ground: Double, sky: Double) {
+            let context = try BrushRaster.context(width: image.width, height: image.height, mask: false)
+            BrushRaster.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height), mask: false, context: context)
+            let bytes = try #require(context.data).assumingMemoryBound(to: UInt8.self)
+            func mean(_ rows: Range<Int>) -> Double {
+                var sum = 0.0
+                for y in rows { for x in 0..<image.width { sum += Double(bytes[y * context.bytesPerRow + x * 4 + 1]) } }
+                return sum / Double(rows.count * image.width)
+            }
+            return (mean((image.height * 4 / 5)..<image.height), mean(0..<(image.height / 5)))
+        }
+        // Width, Shadows, Photoshop's ground and sky, and how near ours must be. Unchanged: ground 19.7, sky 204.7.
+        let cases: [(Int, Double, Double, Double, Double)] = [
+            (1200, 100, 59.0, 205.9, 4), (1200, 50, 34.9, 205.3, 4), (1200, -100, 4.2, 203.6, 4),
+            (600, 100, 51.0, 205.8, 10), (600, 50, 32.2, 205.2, 4), (600, -100, 5.5, 203.6, 4),
+        ]
+        for (width, amount, ground, sky, tolerance) in cases {
+            var settings = CameraRawSettings()
+            settings.shadows = amount
+            let result = try means(settings.apply(try landscape(width: width)))
+            #expect(abs(result.ground - ground) <= tolerance, "\(width) wide, Shadows \(amount): ground \(result.ground), Photoshop \(ground)")
+            #expect(abs(result.sky - sky) <= 2, "\(width) wide, Shadows \(amount): sky \(result.sky), Photoshop \(sky)")
+        }
+    }
+
     @Test func shadowsAndHighlightsKeepTonesInOrder() throws {
         let ramp = try BrushRaster.context(width: 256, height: 1, mask: false)
         for x in 0..<256 {
@@ -782,9 +937,87 @@ struct CameraRawTests {
             let out = try levels(shadows: shadows, highlights: highlights)
             let rising = zip(out, out.dropFirst()).allSatisfy { pair in pair.1 >= pair.0 }
             #expect(rising, "shadows \(shadows), highlights \(highlights): tones out of order")
-            #expect(out[0] <= 2 && out[255] >= 253, "black \(out[0]), white \(out[255])")
+            // Photoshop's Highlights −100 brings white down to 239 on this ramp; everything else keeps it.
+            #expect(out[0] <= 2 && out[255] >= (highlights < 0 ? 235 : 253), "black \(out[0]), white \(out[255])")
         }
         let lifted = try levels(shadows: 100, highlights: 0)
-        #expect(lifted[45] >= 45 + 20, "shadows +100 lifts the dark tones: 45 → \(lifted[45])")
+        #expect(lifted[45] >= 45 + 12, "shadows +100 lifts the dark tones: 45 → \(lifted[45])")
+    }
+
+    private func largePreviewSession() throws -> EditorSession {
+        let session = EditorSession()
+        session.createDocument(width: 3000, height: 16, emptyLayer: true)
+        let context = try BrushRaster.context(width: 3000, height: 16, mask: false)
+        // Single-pixel stripes lose detail in the 2048-pixel interactive source.
+        context.setFillColor(CGColor(gray: 0.25, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 3000, height: 16))
+        context.setFillColor(CGColor(gray: 0.75, alpha: 1))
+        for x in stride(from: 0, to: 3000, by: 2) {
+            context.fill(CGRect(x: x, y: 0, width: 1, height: 16))
+        }
+        let input = try #require(context.makeImage())
+        session.insert(ImportedImage(image: input, thumbnail: input, name: "Fine detail"))
+        session.beginFilter(.cameraRaw)
+        return session
+    }
+
+    @Test func largeCameraRawPreviewKeepsNativeResolutionAcrossSliderUpdates() async throws {
+        let session = try largePreviewSession()
+        let edit = try #require(session.filterEdit)
+        defer { session.cancelFilter() }
+        #expect(edit.previewSource === edit.original.image, "no downsized source or extra full-size copy")
+        #expect(edit.previewScale == 1 && edit.previewMapping == edit.mapping)
+        #expect(edit.previewBrightness == nil, "opening does not measure full-size pixels on the main thread")
+        while let task = edit.previewTask { await task.value }
+        let brightness = try #require(edit.previewBrightness)
+        let expectedBrightness = CameraRawTables.brightness(of: edit.original.image)
+        #expect(brightness.brightest == expectedBrightness.brightest)
+        #expect(brightness.logBrightest == expectedBrightness.logBrightest)
+        #expect(brightness.luminance == expectedBrightness.luminance)
+        #expect(edit.preparedPreview?.width == 3000)
+        for exposure in [0.5, -0.5, 1] {
+            var settings = edit.settings
+            settings.cameraRaw.exposure = exposure
+            settings.cameraRaw.contrast = 10
+            session.updateFilter(settings, preview: true)
+            #expect(edit.preparedPreview?.width == 3000, "the previous sharp preview stays up while rendering")
+            while let task = edit.previewTask { await task.value }
+            let shown = try #require(edit.preparedPreview)
+            #expect(shown.width == 3000 && shown.height == 16)
+            let reference = try CameraRawScope.preview(edit.previewJob).image
+            #expect(try pixels(shown) == pixels(reference), "the existing renderer is unchanged")
+        }
+        let shown = try #require(edit.preparedPreview)
+        session.updateCameraRawReadout(at: CGPoint(x: 2997.5, y: 8.5))
+        let expected = try pixels(shown)[8 * 3000 + 2997]
+        #expect(edit.cameraRawReadout?.red == expected[0])
+    }
+
+    @Test func nativeCameraRawPreviewsCoalesceSliderChangesAndRespectPreviewOffAndCancel() async throws {
+        let session = try largePreviewSession()
+        let edit = try #require(session.filterEdit)
+        defer { session.cancelFilter() }
+        var settings = edit.settings
+        for exposure in [0.5, -1, 1.5] {
+            settings.cameraRaw.exposure = exposure
+            session.updateFilter(settings, preview: true)
+        }
+        #expect(edit.pending?.settings == settings, "only the latest pending slider settings are kept")
+        while let task = edit.previewTask { await task.value }
+        let reference = try CameraRawScope.preview(edit.previewJob).image
+        let newest = try #require(edit.preparedPreview)
+        #expect(try pixels(newest) == pixels(reference))
+        #expect(edit.preparedSettings == settings && edit.pending == nil)
+
+        settings.cameraRaw.exposure = -1
+        session.updateFilter(settings, preview: true)
+        session.updateFilter(settings, preview: false)
+        while let task = edit.previewTask { await task.value }
+        #expect(edit.preparedPreview == nil && edit.previewImage(for: edit.layerID) == nil)
+        session.updateFilter(settings, preview: true)
+        let closing = try #require(edit.previewTask)
+        session.cancelFilter()
+        await closing.value
+        #expect(session.filterEdit == nil)
     }
 }

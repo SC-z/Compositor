@@ -101,11 +101,15 @@ struct ContentView: View {
                         ZStack {
                             EditorCanvas(session: session)
                             if session.document == nil { welcome }
-                            if let layer = session.maskAloneLayer {
+                            if session.maskAloneLayer != nil || ((session.proofsColors || session.showsGamutWarning) && session.document != nil) {
                                 // At the foot of the canvas, clear of the transform box's rotation handle.
-                                MaskAloneBadge(session: session, layer: layer).fixedSize()
-                                    .padding(.bottom, 14)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                                VStack(spacing: 8) {
+                                    if session.proofsColors { ProofBadge(session: session).fixedSize() }
+                                    if session.showsGamutWarning { ProofBadge(session: session, gamut: true).fixedSize() }
+                                    if let layer = session.maskAloneLayer { MaskAloneBadge(session: session, layer: layer).fixedSize() }
+                                }
+                                .padding(.bottom, 14)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                             }
                             if showsNavigator, !session.canvasOnly, session.viewport.zoom >= NavigatorMinimap.zoomShown {
                                 NavigatorMinimap(session: session)
@@ -118,7 +122,8 @@ struct ContentView: View {
                 }
                 if !session.canvasOnly {
                     PanelResizeEdge(width: $layersPanelWidth, range: LayersPanel.widths)
-                    LayersPanel(session: session, width: layersPanelWidth)
+                    // Clamped: a width saved when the panel could go narrower is brought into range.
+                    LayersPanel(session: session, width: min(LayersPanel.widths.upperBound, max(LayersPanel.widths.lowerBound, layersPanelWidth)))
                 }
             }
             if !session.canvasOnly {
@@ -276,8 +281,9 @@ struct ContentView: View {
         .onChange(of: session.document == nil) { _, empty in
             if !empty { session.canvasFocusRequest += 1 }
         }
+        // A folder brings in the images directly inside it.
         .fileImporter(isPresented: $session.showsImporter,
-                      allowedContentTypes: UTType.importableImages, allowsMultipleSelection: true) { result in
+                      allowedContentTypes: UTType.importableImages + [.folder], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls): Task { await session.importImages(urls) }
             case .failure(let error):

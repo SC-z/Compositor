@@ -43,11 +43,29 @@ struct RawDevelopSheet: View {
                 slider("Temperature", value: $settings.temperature, range: 2000...12000, unit: " K", precision: 0)
                 slider("Tint", value: $settings.tint, range: -150...150, unit: "", precision: 0)
                 slider("Boost", value: $settings.boost, range: 0...1, unit: "", precision: 2)
+                slider("Noise Reduction", value: $settings.noiseReduction, range: 0...1, unit: "", precision: 2)
+                    .disabled(!settings.supportsNoiseReduction)
+                    .help(settings.supportsNoiseReduction ? "Smooths grain, at the cost of fine detail"
+                                                          : "Not available for this camera")
+                HStack(spacing: 20) {
+                    Toggle("Lens Correction", isOn: $settings.lensCorrection)
+                        .disabled(!settings.supportsLensCorrection)
+                        .help(settings.supportsLensCorrection ? "Removes the lens's distortion and vignetting"
+                                                              : "This file has no lens profile")
+                    Toggle("Highlight Recovery", isOn: $settings.highlightRecovery)
+                        .disabled(!settings.supportsHighlightRecovery)
+                        .help(settings.supportsHighlightRecovery ? "Brings back detail in bright areas the camera partly clipped"
+                                                                 : "Not available for this camera or macOS version")
+                }
+                .padding(.leading, 120)
 
                 HStack {
                     Button("Reset") { settings.reset() }.disabled(settings.isAsShot)
                     Spacer()
                     Button("Cancel") { session.finishRawDevelop(nil) }.keyboardShortcut(.cancelAction)
+                    // Imports, then opens the Camera Raw Filter on the new layer, as Photoshop opens a RAW in Camera Raw.
+                    Button("Camera Raw…") { session.finishRawDevelop(settings, openingCameraRaw: true) }
+                        .help("Import, then open the Camera Raw Filter")
                     Button("Import") { session.finishRawDevelop(settings) }.keyboardShortcut(.defaultAction)
                 }
             }
@@ -78,7 +96,7 @@ struct RawDevelopSheet: View {
     private func slider(_ title: String, value: Binding<Float>, range: ClosedRange<Float>,
                         unit: String, precision: Int) -> some View {
         HStack(spacing: 10) {
-            Text(LocalizedStringKey(title)).frame(width: 90, alignment: .leading)
+            Text(LocalizedStringKey(title)).frame(width: 110, alignment: .leading)
             Slider(value: value, in: range).frame(width: 300)
             Text(String(format: "%.\(precision)f%@", value.wrappedValue, unit))
                 .monospacedDigit().foregroundStyle(.secondary)

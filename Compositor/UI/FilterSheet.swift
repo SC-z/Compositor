@@ -87,6 +87,26 @@ struct FilterSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             case .gaussianBlur:
                 control("Radius", \.radius, range: 0.1...250, unit: "px", decimals: 1, logarithmic: true)
+                Toggle("Preserve Transparency", isOn: flag(\.preserveTransparency))
+                    .help("Blur only the colors, keeping the layer's outline and transparency as they are")
+            case .progressiveBlur:
+                Text("Click and drag two points on canvas")
+                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 10) {
+                    Text("Shape")
+                    Picker("Shape", selection: flag(\.progressiveRadial)) {
+                        Text("Linear").tag(false)
+                        Text("Radial").tag(true)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                    .help("Linear blurs along the line; Radial keeps the start sharp and blurs outwards")
+                }
+                control("From", \.progressiveFrom, range: 0...250, unit: "px", decimals: 1, logarithmic: false)
+                    .help("The blur where the line starts")
+                control("To", \.progressiveTo, range: 0...250, unit: "px", decimals: 1, logarithmic: false)
+                    .help("The blur where the line ends, and past it")
+                Toggle("Invert", isOn: flag(\.progressiveInverted))
+                    .help("Swap From and To: blur the start and sharpen toward the end")
             case .motionBlur:
                 control("Angle", \.angle, range: -90...90, unit: "°", decimals: 0, logarithmic: false)
                 control("Distance", \.distance, range: 1...2000, unit: "px", decimals: 0, logarithmic: true)

@@ -38,6 +38,7 @@ xcrun swiftc -O -whole-module-optimization -module-name Compositor -swift-versio
     -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
     Compositor/**/*.swift "$WORK"/objects/*.o -o "$APP/Contents/MacOS/Compositor"
 ditto "$FRAMEWORKS/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+ditto Compositor/Resources "$APP/Contents/Resources"
 ditto Compositor/zh-Hans.lproj "$APP/Contents/Resources/zh-Hans.lproj"
 
 # Command Line Tools has no asset catalog compiler; package the existing icon with iconutil.

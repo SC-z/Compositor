@@ -28,7 +28,7 @@ if len(sys.argv) > 1:
     assert files, 'No compiler-extracted strings found'
     keys = {item['key'] for path in files for item in json.loads(path.read_text()).get('tables', {}).get('Localizable', [])}
     # Technical units, channel letters, format names and bare numbers need no translation.
-    unchanged = {'Compositor', 'sRGB', 'RGB', 'PNG', 'JPEG', 'PDF', 'ASCII', 'DPI', 'HSL', 'X', 'Y', 'W', 'H', 'R', 'G', 'B', 'C', 'M', 'K', 'L', 'a', 'b', 'EV'}
+    unchanged = {'Compositor', 'sRGB', 'RGB', 'CMYK', 'PNG', 'JPEG', 'PDF', 'ASCII', 'DPI', 'HSL', 'X', 'Y', 'W', 'H', 'R', 'G', 'B', 'C', 'M', 'K', 'L', 'a', 'b', 'EV'}
     missing = sorted(key for key in keys if key not in strings and key not in unchanged
                      and re.search('[A-Za-z]', placeholder.sub('', key)))
     assert not missing, 'Missing translations:\n' + '\n'.join(missing)

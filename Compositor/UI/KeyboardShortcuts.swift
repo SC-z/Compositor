@@ -5,6 +5,9 @@ struct ShortcutChord: Codable, Equatable, Hashable {
     var key: String
     var modifiers: Int
     init(_ key: String, _ modifiers: Int = 0) { self.key = key; self.modifiers = modifiers }
+    /// No key: one the person cleared, or a menu command that ships without one until the person gives it one.
+    static let unassigned = ShortcutChord("")
+    var isNone: Bool { key.isEmpty }
     // Stable stored bits: Command, Option, Control, Shift.
     init(_ event: NSEvent) {
         let flags = event.modifierFlags
@@ -33,6 +36,15 @@ struct ShortcutChord: Codable, Equatable, Hashable {
         if modifiers & 8 != 0 { flags.insert(.shift) }
         return flags
     }
+    /// What SwiftUI applies to a menu item or button. The list records Delete as U+007F, as NSEvent reports it;
+    /// SwiftUI's Delete key equivalent is U+0008.
+    var keyboardShortcut: KeyboardShortcut? {
+        key.first.map { KeyboardShortcut($0 == "\u{7f}" ? .delete : KeyEquivalent($0), modifiers: eventModifiers) }
+    }
+    /// A key equivalent as the list records it: SwiftUI's `.delete` (U+0008) is the Delete key, recorded as U+007F.
+    static func recorded(_ key: KeyEquivalent) -> String {
+        key == .delete ? "\u{7f}" : String(key.character)
+    }
     var cocoaModifiers: NSEvent.ModifierFlags {
         var flags: NSEvent.ModifierFlags = []
         if modifiers & 1 != 0 { flags.insert(.command) }
@@ -42,6 +54,7 @@ struct ShortcutChord: Codable, Equatable, Hashable {
         return flags
     }
     var label: String {
+        if isNone { return localized("None") }
         let special = ["\u{7f}": "Delete", "\r": "Return", "\u{1b}": "Esc", "\t": "Tab", " ": "Space",
                        "\u{f702}": "←", "\u{f703}": "→", "\u{f701}": "↓", "\u{f700}": "↑"]
         return (modifiers & 4 != 0 ? "⌃" : "") + (modifiers & 2 != 0 ? "⌥" : "")
@@ -75,7 +88,7 @@ struct ShortcutDefinition: Identifiable {
             entry("Undo", "z", 1, menu: true), entry("Redo", "z", 9, menu: true),
             entry("New Canvas", "n", 1, menu: true), entry("Open Project", "o", 1, menu: true),
             entry("Save", "s", 1, menu: true), entry("Save As", "s", 9, menu: true),
-            entry("Export PNG", "e", 9, menu: true), entry("Export JPEG", "s", 11, menu: true), entry("Export As", "w", 11, menu: true),
+            entry("Export JPEG", "s", 11, menu: true), entry("Export PNG", "e", 9, menu: true), entry("Export As", "w", 11, menu: true),
             entry("Close Project", "w", 1, menu: true), entry("Fit Canvas", "0", 1, menu: true), entry("Search Commands", "f", 1, menu: true),
             entry("Actual Pixels", "1", 1, menu: true), entry("Zoom In", "=", 1, menu: true),
             entry("Zoom Out", "-", 1, menu: true), entry("Show Transform Controls", "h", 1, menu: true),
@@ -95,7 +108,10 @@ struct ShortcutDefinition: Identifiable {
             entry("Move Layer Down", "[", 1, menu: true), entry("Merge Layers", "e", 1, menu: true),
             entry("Show Grid", "'", 1, menu: true), entry("Show Guides", ";", 1, menu: true),
             entry("Show Rulers", "r", 1, menu: true), entry("Snap", ";", 9, menu: true),
-            entry("Lock Guides", ";", 3, menu: true)
+            entry("Lock Guides", ";", 3, menu: true),
+            // No key by default, so they aren't hit by mistake; Photoshop's are ⌘Y and ⇧⌘Y.
+            .init(title: "CMYK Proof Colors", group: "Menus", original: .unassigned),
+            .init(title: "CMYK Gamut Warning", group: "Menus", original: .unassigned),
         ]
         for (title, key) in [("Toggle Fullscreen: the canvas alone on black (Esc also leaves)", "f"), ("Select tool", "a"), ("Move / Transform tool", "v"), ("Hand tool", "h"),
             ("Zoom tool", "z"), ("Brush tool", "b"), ("Eraser", "e"), ("Spot Healing", "j"),
@@ -133,23 +149,39 @@ final class ShortcutSettings {
     private(set) var overrides: [String: ShortcutChord] = [:]
     @ObservationIgnored private let panel = FloatingPanelController(name: "keyboardShortcuts")
     private static let storageKey = "keyboardShortcuts.v1"
-    private init() {
-        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
-           let saved = try? JSONDecoder().decode([String: ShortcutChord].self, from: data),
-           Self.problem(in: saved) == nil { overrides = saved }
+    private let defaults: UserDefaults
+    /// `defaults` is the app's own everywhere but tests, which use a throwaway suite.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        guard let data = defaults.data(forKey: Self.storageKey),
+              let saved = try? JSONDecoder().decode([String: ShortcutChord].self, from: data) else { return }
+        // Saved shortcuts are taken one at a time, keeping each that still fits: one for a command that has since gone,
+        // or one a new default now takes, drops alone rather than taking every other saved shortcut with it.
+        let known = Set(ShortcutDefinition.all.map(\.id))
+        var accepted: [String: ShortcutChord] = [:]
+        for (id, chord) in saved.sorted(by: { $0.key < $1.key }) where known.contains(id) {
+            var trial = accepted
+            trial[id] = chord
+            if Self.problem(in: trial) == nil { accepted = trial }
+        }
+        overrides = accepted
     }
     func chord(_ definition: ShortcutDefinition) -> ShortcutChord { overrides[definition.id] ?? definition.original }
     func menu(_ key: KeyEquivalent, modifiers: EventModifiers) -> ShortcutChord {
         let bits = (modifiers.contains(.command) ? 1 : 0) | (modifiers.contains(.option) ? 2 : 0)
             | (modifiers.contains(.control) ? 4 : 0) | (modifiers.contains(.shift) ? 8 : 0)
-        let original = ShortcutChord(String(key.character), bits)
+        let original = ShortcutChord(ShortcutChord.recorded(key), bits)
         guard let definition = ShortcutDefinition.all.first(where: { $0.isMenu && $0.original == original }) else { return original }
         return chord(definition)
+    }
+    /// The key the person gave a menu command that ships without one, by its title in the list; nil until they do.
+    func assigned(_ title: String) -> KeyboardShortcut? {
+        ShortcutDefinition.all.first { $0.isMenu && $0.original.isNone && $0.title == title }.flatMap { chord($0).keyboardShortcut }
     }
     func native(_ key: KeyEquivalent, modifiers: EventModifiers = []) -> ShortcutChord {
         let bits = (modifiers.contains(.command) ? 1 : 0) | (modifiers.contains(.option) ? 2 : 0)
             | (modifiers.contains(.control) ? 4 : 0) | (modifiers.contains(.shift) ? 8 : 0)
-        let original = ShortcutChord(String(key.character), bits)
+        let original = ShortcutChord(ShortcutChord.recorded(key), bits)
         guard let definition = ShortcutDefinition.all.first(where: { !$0.isMenu && $0.original == original }) else { return original }
         return chord(definition)
     }
@@ -160,13 +192,14 @@ final class ShortcutSettings {
     func save(_ values: [String: ShortcutChord]) {
         guard Self.problem(in: values) == nil, let data = try? JSONEncoder().encode(values) else { return }
         overrides = values
-        UserDefaults.standard.set(data, forKey: Self.storageKey)
+        defaults.set(data, forKey: Self.storageKey)
         close()
     }
     static func problem(in values: [String: ShortcutChord]) -> String? {
         var assigned: [ShortcutChord: String] = [:]
         for definition in ShortcutDefinition.all {
             let chord = values[definition.id] ?? definition.original
+            if chord.isNone { continue }
             guard chord.key.count == 1, (0...15).contains(chord.modifiers) else { return "Choose a single key with optional modifiers." }
             if definition.group == "Text Editing", chord.modifiers & 7 == 0 {
                 return "Text-editing shortcuts need Command, Option, or Control so they do not replace normal typing."
@@ -183,8 +216,9 @@ final class ShortcutSettings {
     /// Translate only at the existing canvas/layer responder boundary. Native text
     /// fields and dialog controls retain their normal typing and navigation behavior.
     func canvasEvent(_ event: NSEvent) -> NSEvent? {
-        guard !overrides.isEmpty else { return event }
         let input = ShortcutChord(event)
+        // A key that types nothing (a dead key on some layouts) reads as no key, as an unassigned command's does.
+        guard !overrides.isEmpty, !input.isNone else { return event }
         if let definition = ShortcutDefinition.all.first(where: { $0.group == "Canvas & Layers" && chord($0) == input }) {
             return definition.original == input ? event : definition.original.event(like: event)
         }
@@ -202,9 +236,9 @@ final class ShortcutSettings {
     }
 
     func textEvent(_ event: NSEvent) -> NSEvent? {
-        guard !overrides.isEmpty else { return event }
-        let definitions = ShortcutDefinition.all.filter { $0.group == "Text Editing" || $0.original == ShortcutChord("\u{1b}") }
         let input = ShortcutChord(event)
+        guard !overrides.isEmpty, !input.isNone else { return event }
+        let definitions = ShortcutDefinition.all.filter { $0.group == "Text Editing" || $0.original == ShortcutChord("\u{1b}") }
         if let definition = definitions.first(where: { chord($0) == input }) {
             return definition.original == input ? event : definition.original.event(like: event)
         }
@@ -215,14 +249,15 @@ final class ShortcutSettings {
 
 extension View {
     func configuredNativeShortcut(_ key: KeyEquivalent, modifiers: EventModifiers = []) -> some View {
-        let chord = ShortcutSettings.shared.native(key, modifiers: modifiers)
-        guard let first = chord.key.first else { return keyboardShortcut(key, modifiers: modifiers) }
-        return keyboardShortcut(KeyEquivalent(first), modifiers: chord.eventModifiers)
+        // nil when the person cleared it: no key at all.
+        keyboardShortcut(ShortcutSettings.shared.native(key, modifiers: modifiers).keyboardShortcut)
     }
     func configuredKeyboardShortcut(_ key: KeyEquivalent, modifiers: EventModifiers = .command) -> some View {
-        let chord = ShortcutSettings.shared.menu(key, modifiers: modifiers)
-        guard let first = chord.key.first else { return keyboardShortcut(key, modifiers: modifiers) }
-        return keyboardShortcut(KeyEquivalent(first), modifiers: chord.eventModifiers)
+        keyboardShortcut(ShortcutSettings.shared.menu(key, modifiers: modifiers).keyboardShortcut)
+    }
+    /// For a menu item that ships without a key: the one the person gave it in Keyboard Shortcuts, if any.
+    func assignableShortcut(_ title: String) -> some View {
+        keyboardShortcut(ShortcutSettings.shared.assigned(title))
     }
 }
 
@@ -234,7 +269,7 @@ private struct KeyboardShortcutsSheet: View {
     init(settings: ShortcutSettings) { self.settings = settings; _draft = State(initialValue: settings.overrides) }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Click a shortcut, then press its new key combination. Changes apply when you save.")
+            Text("Click a shortcut, then press its new key combination, or ⊗ to remove it. Changes apply when you save.")
                 .foregroundStyle(.secondary)
             TextField("Search shortcuts", text: $search).textFieldStyle(.roundedBorder)
             ScrollView {
@@ -253,6 +288,17 @@ private struct KeyboardShortcutsSheet: View {
                                         recording = nil
                                     })
                                     .frame(width: 150, height: 26)
+                                    // Only on the shortcut being recorded, so the list isn't a column of them.
+                                    .overlay(alignment: .trailing) {
+                                        if recording == definition.id, !(draft[definition.id] ?? definition.original).isNone {
+                                            Button {
+                                                draft[definition.id] = .unassigned
+                                                recording = nil
+                                            } label: { Image(systemName: "xmark.circle.fill") }
+                                                .buttonStyle(.borderless).foregroundStyle(.secondary)
+                                                .help("Remove this shortcut").padding(.trailing, 7)
+                                        }
+                                    }
                             }
                         }
                     }

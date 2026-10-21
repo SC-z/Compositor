@@ -22,7 +22,6 @@ final class ProjectWorkspace {
     private(set) var selectedID: UUID
     var isManaging = false
     @ObservationIgnored weak var window: NSWindow?
-    @ObservationIgnored private var nextNumber = 2
     var current: ProjectTab { tabs.first { $0.id == selectedID } ?? tabs[0] }
     var canSwitch: Bool {
         let s = current.session
@@ -35,11 +34,21 @@ final class ProjectWorkspace {
         tabs = [first]; selectedID = first.id
         first.controller.workspace = self
     }
+    /// A new tab's name: "Untitled" if no tab shows it, otherwise the lowest "Untitled N" free, as Finder and Safari
+    /// number them. Counting up for ever, closing the last tab made Untitled 2, then 3, and on.
+    private var freeUntitledName: String {
+        let taken = Set(tabs.map(\.title))
+        guard taken.contains(localized("Untitled")) else { return localized("Untitled") }
+        return (2...).lazy.map { String(localized: "Untitled \($0)") }.first { !taken.contains($0) }!
+    }
+    /// Whether a tab can close: not the only one while it's empty, the blank start it would only be replaced with.
+    func canClose(_ tab: ProjectTab) -> Bool {
+        !(tabs.count == 1 && tab.session.document == nil && tab.session.projectURL == nil)
+    }
     @discardableResult
     func addTab(reuseEmpty: Bool = true) -> ProjectTab {
         if reuseEmpty, tabs.count == 1, current.session.document == nil { return current }
-        let tab = ProjectTab(name: String(localized: "Untitled \(nextNumber)"))
-        nextNumber += 1
+        let tab = ProjectTab(name: freeUntitledName)
         tab.controller.workspace = self; tab.controller.window = window
         tabs.append(tab); selectedID = tab.id
         return tab
@@ -97,7 +106,7 @@ final class ProjectWorkspace {
         return true
     }
     func close(_ id: UUID) async {
-        guard canSwitch, let tab = tabs.first(where: { $0.id == id }) else { return }
+        guard canSwitch, let tab = tabs.first(where: { $0.id == id }), canClose(tab) else { return }
         isManaging = true
         defer { isManaging = false }
         tab.controller.window = window
@@ -191,7 +200,7 @@ final class ProjectWorkspace {
     /// Cmd-V with a whole layer copied: pastes it complete — a copy above it in its own project, or brought over as
     /// dragging it onto this tab does. False when there is none, and Paste goes on with pixels.
     func pasteCopiedLayer() -> Bool {
-        let count = NSPasteboard.general.changeCount
+        let count = EditorSession.pasteboard.changeCount
         guard let source = tabs.first(where: { $0.session.copiedLayer?.changeCount == count }),
               let copied = source.session.copiedLayer?.ids, let layers = source.session.document?.layers else { return false }
         let ids = copied.filter { id in layers.contains { $0.id == id } }
@@ -242,12 +251,23 @@ final class ProjectWorkspace {
                 copied[i].maskSourceID = nil
             }
             let mapping = Dictionary(uniqueKeysWithValues: copied.map { ($0.id, UUID()) })
-            let size = target.session.document?.size ?? sourceDocument.size
             let pictured = copied.filter { !$0.isGroup }.map { CGRect(origin: $0.transform.origin, size: $0.transform.size) }
-            let anchor = ids.count == 1 || pictured.isEmpty
+            // A new project is the size of the pixels dragged in (turned as they're shown), not of the canvas they
+            // came from; layers with none of their own (adjustments, blank layers) don't count.
+            let drawn = copied.filter { !$0.isGroup && $0.adjustment == nil && ($0.asset != nil || $0.text != nil) }.map { layer in
+                let corners = [CGPoint(x: 0, y: 0), CGPoint(x: 1, y: 0), CGPoint(x: 0, y: 1), CGPoint(x: 1, y: 1)].map(layer.transform.point)
+                let xs = corners.map(\.x), ys = corners.map(\.y)
+                return CGRect(x: xs.min()!, y: ys.min()!, width: xs.max()! - xs.min()!, height: ys.max()! - ys.min()!)
+            }
+            let fitted = target.session.document == nil && !drawn.isEmpty
+                ? drawn.dropFirst().reduce(drawn[0]) { $0.union($1) }.integral : nil
+            let size = target.session.document?.size ?? fitted.map {
+                CGSize(width: min(CGFloat(DocumentLimits.maxSide), $0.width), height: min(CGFloat(DocumentLimits.maxSide), $0.height))
+            } ?? sourceDocument.size
+            let anchor = fitted.map { CGPoint(x: $0.midX, y: $0.midY) } ?? (ids.count == 1 || pictured.isEmpty
                 ? copied.first(where: { $0.id == id })?.transform.center ?? CGPoint(x: sourceDocument.size.width/2, y: sourceDocument.size.height/2)
-                : { let r = pictured.dropFirst().reduce(pictured[0]) { $0.union($1) }; return CGPoint(x: r.midX, y: r.midY) }()
-            let center = point ?? CGPoint(x: size.width/2, y: size.height/2)
+                : { let r = pictured.dropFirst().reduce(pictured[0]) { $0.union($1) }; return CGPoint(x: r.midX, y: r.midY) }())
+            let center = fitted == nil ? point ?? CGPoint(x: size.width/2, y: size.height/2) : CGPoint(x: size.width/2, y: size.height/2)
             let layers = copied.map { layer -> ImageLayer in
                 var transform = layer.transform
                 transform.origin.x += center.x-anchor.x; transform.origin.y += center.y-anchor.y

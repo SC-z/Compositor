@@ -86,7 +86,7 @@ struct TypeControls: View {
                                     change: { stepped in session.changeTextStyle { $0.leading = CGFloat(max(0, stepped)) } })
                         .help("Line height, baseline to baseline. Empty or 0 is Auto: 120% of the font size.")
                 }
-            }.scrollIndicators(.hidden)
+            }.scrollIndicators(.never)
             if session.textDraft != nil {
                 Button("Cancel") { session.cancelText() }
                 Button("Done") { _ = session.finishText() }

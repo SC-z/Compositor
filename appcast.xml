@@ -3,13 +3,20 @@
   <channel>
     <title>Compositor</title>
     <item>
-      <title>Version 1.4.8</title>
-      <pubDate>Fri, 09 Oct 2026 05:44:40 +0000</pubDate>
-      <sparkle:version>43</sparkle:version>
-      <sparkle:shortVersionString>1.4.8</sparkle:shortVersionString>
+      <title>Version 1.5.3</title>
+      <pubDate>Thu, 15 Oct 2026 01:43:32 +0000</pubDate>
+      <sparkle:version>49</sparkle:version>
+      <sparkle:shortVersionString>1.5.3</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-      <link>https://github.com/robbietilton/Compositor/releases/tag/v1.4.8</link>
-      <enclosure url="https://github.com/robbietilton/Compositor/releases/download/v1.4.8/Compositor.dmg" sparkle:edSignature="L9Y6nG6vpLtNWVxbgpuJ+2tXM3HeIr1MlfNqAXbJt4adiBFrOWO8gKtwx9FdXKZuAxdwcNhkgdY0wcCzjOx4DA==" length="6866018" type="application/octet-stream"/>
+      <link>https://github.com/robbietilton/Compositor/releases/tag/v1.5.3</link>
+      <changes><![CDATA[Faster Camera Raw previews on large images with GPU acceleration, preserving existing adjustment results.
+Camera Raw previews stay at full resolution while dragging sliders.
+Faster histogram and scope updates.
+New Smooth Corners option for rectangles, with iOS-style rounded corners.
+Cleaner shape controls, with the fill swatch first in all three shape modes.
+Scroll the Layers panel by dragging with the middle mouse button.
+Zoom cursors update immediately when changing drag direction.]]></changes>
+      <enclosure url="https://github.com/robbietilton/Compositor/releases/download/v1.5.3/Compositor.dmg" sparkle:edSignature="EHmfmMu/Hh6FYSoa1y1nnd7gCgDLQp42NxsQZ6OUXl40VQ6/oNaLPwrOF/xhYDsz3Ed/TTcIK8Irnc8DT0J0AA==" length="8239279" type="application/octet-stream"/>
     </item>
   </channel>
 </rss>

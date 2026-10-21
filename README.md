@@ -56,7 +56,7 @@ brew install --cask robbietilton-compositor
 - Eyedropper and a full color picker
 
 ### Adjustments and filters
-- Camera Raw filter: light, color, curves, color mixer, color grading, detail, optics and geometry, in a panel beside the canvas
+- Camera Raw filter: light, color, curves, color mixer, color grading, detail, optics and geometry, in a panel beside the canvas; each section resets to its defaults from its header
 - Levels (with Auto), Curves, Hue/Saturation, Exposure, Gradient Map, Grain, Black & White, Color Balance and Invert
 - Gaussian Blur and Motion Blur that spread past a layer's edges
 - Add Noise, Vignette, Bloom / Glow, Dither, Scanlines, Tonal Contrast, Lens Correction and Remove Background
@@ -72,9 +72,9 @@ brew install --cask robbietilton-compositor
 - Canvas Size, Image Size and Trim
 - A Navigator minimap in the canvas's corner from 300% zoom: the whole document in small with a box around the view; click or drag to move there (View › Navigator)
 - Sharp high-quality downsampling when zoomed out, and a pixel grid when zoomed in
-- Import JPEG, PNG, HEIC, TIFF, SVG, camera RAW (with a develop step first) and Photoshop PSD and PSB (8-bit RGB; not CMYK). Photoshop folders, masks, blend modes, fill rectangles/ellipses, and simple horizontal text stay editable; other vectors and vertical text become pixels. A conversion report is shown before anything is applied.
+- Import JPEG, PNG, HEIC, TIFF, WebP, SVG, camera RAW (with a develop step first) and Photoshop PSD and PSB (8-bit RGB or CMYK; CMYK converts to RGB and retains its profile for proofing). Photoshop folders, masks, blend modes, fill rectangles/ellipses, and simple horizontal text stay editable; other vectors and vertical text become pixels. A conversion report is shown before anything is applied.
 - Large documents: the memory budget scales with your Mac, and a Photoshop file too big to open has its layers cropped to the canvas instead
-- Export PNG (⇧⌘E), Export JPEG (⇧⌥⌘S), and Export As (⇧⌥⌘W) for PNG, JPEG or a one-page PDF at the print size, scaled if you like, with a live preview, JPEG quality and file size; Copy Merged
+- Export PNG (⇧⌘E), Export JPEG (⇧⌥⌘S), and Export As (⇧⌥⌘W) for PNG, JPEG, TIFF, a one-page PDF, or EXR when the document has HDR layers, with a live preview, JPEG quality and file size; CMYK export for JPEG, TIFF and PDF; Copy Merged
 - Keep working while a project saves
 - Photoshop-style keyboard shortcuts throughout, remappable in Edit > Keyboard Shortcuts
 - Drag a number's label to scrub its value, as in Photoshop
@@ -91,6 +91,10 @@ brew install --cask robbietilton-compositor
 ## Translations
 
 This compatibility build includes Simplified Chinese in `Compositor/zh-Hans.lproj/Localizable.strings`. The interface follows the app's preferred language; choose Simplified Chinese for Compositor in macOS Language & Region settings. Project format values, font names, and user content keep their original values. Upstream does not currently accept translation pull requests.
+
+## Upstream sync
+
+This fork includes upstream 1.5.3 (`365b574`), including 16-bit layers, HDR/EXR, CMYK import and export, Progressive Blur, and the Camera Raw updates. Simplified Chinese and the macOS 15 deployment target are retained. RAW Highlight Recovery requires macOS 26 and a supported camera; its control is disabled on macOS 15. New saves use project format 14, which older builds cannot open; keep a copy before saving an older project with this version.
 
 ## Building
 
