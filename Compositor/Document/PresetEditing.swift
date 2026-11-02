@@ -30,11 +30,13 @@ extension EditorSession {
         }
         commitTransform(); cancelCrop(); cancelLasso()
         guard let layer = activeLayer, let document else { return }
+        pauseGIFForEditing(for: layer.id)
         do {
             let clip = try selection?.clip(canvas: document.size)
             beginEdit("Apply Preset")
             let edit = PresetEdit(documentID: document.id, layer: layer, original: nil, selection: activeLayerID, insertionIndex: 0)
-            edit.pixelOriginal = layer; edit.pixelSelection = clip; edit.pixelIsMask = isMaskSelected
+            edit.pixelOriginal = layer; edit.pixelSource = pixelEditingLayer(for: layer)
+            edit.pixelSelection = clip; edit.pixelIsMask = isMaskSelected
             presetEdit = edit; adjustmentEditingID = layer.id
         } catch { importError = error.localizedDescription }
     }
@@ -42,7 +44,7 @@ extension EditorSession {
     func applyPixelPresetPreview() {
         guard let edit = presetEdit, let original = edit.pixelOriginal,
               let index = document?.layers.firstIndex(where: { $0.id == original.id }),
-              let asset = edit.pixelIsMask ? original.mask?.asset : original.asset else { return }
+              let asset = edit.pixelIsMask ? original.mask?.asset : edit.pixelSource?.asset else { return }
         if edit.lookup == nil || edit.error != nil {
             edit.renderTask?.cancel(); edit.renderID = UUID(); edit.rendering = false
             document?.layers[index] = original; brushRevision += 1
@@ -54,7 +56,10 @@ extension EditorSession {
             guard edit.preview else { return }
             var layer = original
             if edit.pixelIsMask { layer.mask = original.mask?.replacing(made) }
-            else { layer.asset = made; layer.text = nil; layer.shape = nil }
+            else {
+                do { layer = try layerByEditingPixels(original, asset: made, transform: original.transform, mask: original.mask) }
+                catch { edit.error = error.localizedDescription; return }
+            }
             document?.layers[index] = layer; brushRevision += 1; return
         }
         guard let lookup = edit.lookup else { return }

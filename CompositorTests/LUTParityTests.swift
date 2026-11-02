@@ -82,7 +82,7 @@ import Testing
         let snapshot = try #require(session.projectSnapshot())
         try await ProjectStore.shared.save(snapshot, to: root)
         let loaded = try await ProjectStore.shared.load(from: root)
-        #expect(loaded.manifest.version == 17 && loaded.manifest.layers.last?.adjustment?.resolvedLookupSettings.dither == true)
+        #expect(loaded.manifest.version == ProjectManifest.current && loaded.manifest.layers.last?.adjustment?.resolvedLookupSettings.dither == true)
         var old = snapshot.manifest; old.version = 16
         await #expect(throws: ProjectError.self) { try await ProjectStore.shared.save(ProjectSnapshot(manifest: old, images: snapshot.images), to: root) }
         let id = try #require(session.activeLayerID)
@@ -253,7 +253,7 @@ import Testing
     }
 
     @Test func exportRejectsSpatialEffectsButAllowsSelectedColorLayers() async throws {
-        for kind in [AdjustmentKind.gaussianBlur, .motionBlur, .grain, .addNoise] {
+        for kind in [AdjustmentKind.gaussianBlur, .motionBlur, .grain, .addNoise, .progressiveBlur, .bloomGlow, .rgbSplit, .vignette, .lensEffects, .tonalContrast, .sharpen] {
             let session = EditorSession(); session.createDocument(width: 2, height: 2)
             session.addAdjustment(.invert)
             let color = try #require(session.activeLayerID)

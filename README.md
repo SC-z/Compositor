@@ -25,7 +25,7 @@ brew install --cask robbietilton-compositor
 - Layers and folders, with opacity and Photoshop's full set of blend modes in its order — a folder's opacity dims everything inside it
 - Layer masks: paint, fill, invert, blur and feather them anywhere on the canvas, past the layer's own pixels; link or unlink them to transform a mask on its own
 - Clipping masks and folder masks
-- Adjustment layers: Hue/Saturation, Levels, Curves, Exposure, Gradient Map, Grain, Black & White, Color Balance, Invert, Gaussian Blur, Motion Blur and Noise
+- Adjustment layers: Hue/Saturation, Levels, Curves, Exposure, Gradient Map, Grain, Black & White, Color Balance, Invert, and filter layers: Gaussian Blur, Motion Blur, Progressive Blur, Sharpen, Noise, Vignette, Bloom / Glow, RGB Split, Lens Effects and Tonal Contrast
 - Layer effects: Stroke, Drop Shadow, Color Overlay, Inner Shadow, Outer Glow and Inner Glow, rendered on the GPU and editable at any time
 - Merge Down, Merge Layers and Merge Group (⌘E)
 - Duplicate, rename inline, reorder and nest by drag and drop; Option-drag to duplicate; a right-click menu in the Layers panel
@@ -38,6 +38,7 @@ brew install --cask robbietilton-compositor
 - Snapping to canvas and layer edges and centers, with guides
 - Exact values for position, size, scale and angle, stepped with the arrow keys
 - Flip Layer and Flip Canvas, horizontal and vertical
+- Align and Distribute layers to each other, the selection or the canvas, from the Move tool's bar or the Layer menu
 
 ### Selections
 - Rectangle and Ellipse Marquee, Freehand and Polygonal Lasso, and the Magic tool — Wand selects by color, Object traces whatever you click (Tab switches)
@@ -48,6 +49,7 @@ brew install --cask robbietilton-compositor
 
 ### Painting and retouching
 - Brush with size, hardness, opacity and smoothing, in Paint or Erase mode (B and E), and Shift for straight lines
+- Pen pressure for the Brush's size and opacity, on a graphics tablet
 - Spot Healing Brush (content-aware)
 - Clone Stamp, aligned or not, sampling one layer or all of them
 - Blur tool, on pixels or masks
@@ -59,7 +61,7 @@ brew install --cask robbietilton-compositor
 - Camera Raw filter: light, color, curves, color mixer, color grading, detail, optics and geometry, in a panel beside the canvas; each section resets to its defaults from its header
 - Levels (with Auto), Curves, Hue/Saturation, Exposure, Gradient Map, Grain, Black & White, Color Balance and Invert
 - Gaussian Blur and Motion Blur that spread past a layer's edges
-- Add Noise, Vignette, Bloom / Glow, Dither, Scanlines, Tonal Contrast, Lens Correction and Remove Background
+- Sharpen, Add Noise, Vignette, Bloom / Glow, Dither, Scanlines, RGB Split, Lens Effects (anamorphic flare, starburst, mist, prism and bokeh in round, hexagon, oval or cat's-eye shapes), Tonal Contrast, Volumetric Light (fog that thickens with distance around the subject, lit by a light you place, with the photo's own lights glowing into it and optional beams), Rim Light (up to three colored lights behind the subject, with glow that wraps it into the light), Lens Correction and Remove Background
 - Live previews, limited to the selection when there is one
 - Last Filter (⌃⌘F) runs the last filter again with the same settings
 
@@ -70,11 +72,12 @@ brew install --cask robbietilton-compositor
 - Rulers (⌘R), guides dragged from them, a layout grid with adjustable spacing and subdivisions, and Snap To for guides, grid, layers and document bounds
 - Crop with snapping, ratios including 3:4 and 9:16, and Option for symmetric cropping; with a selection, the crop starts at it
 - Canvas Size, Image Size and Trim
+- The tool bar moves into two columns when the window is too short for one
 - A Navigator minimap in the canvas's corner from 300% zoom: the whole document in small with a box around the view; click or drag to move there (View › Navigator)
 - Sharp high-quality downsampling when zoomed out, and a pixel grid when zoomed in
-- Import JPEG, PNG, HEIC, TIFF, WebP, SVG, camera RAW (with a develop step first) and Photoshop PSD and PSB (8-bit RGB or CMYK; CMYK converts to RGB and retains its profile for proofing). Photoshop folders, masks, blend modes, fill rectangles/ellipses, and simple horizontal text stay editable; other vectors and vertical text become pixels. A conversion report is shown before anything is applied.
+- Import JPEG, PNG, HEIC, TIFF, WebP, SVG, PDF (every page its own layer, at 300 DPI or fitted to the canvas), animated GIF (one layer whose frames show in a strip under the canvas, to play, paint on, duplicate, delete and retime), camera RAW (with a develop step first) and Photoshop PSD and PSB (8-bit RGB or CMYK; CMYK converts to RGB and retains its profile for proofing). Each Photoshop artboard opens in a tab of its own; folders, masks, blend modes, fill rectangles/ellipses, and simple horizontal text stay editable; other vectors and vertical text become pixels. A conversion report is shown before anything is applied.
 - Large documents: the memory budget scales with your Mac, and a Photoshop file too big to open has its layers cropped to the canvas instead
-- Export PNG (⇧⌘E), Export JPEG (⇧⌥⌘S), and Export As (⇧⌥⌘W) for PNG, JPEG, TIFF, a one-page PDF, or EXR when the document has HDR layers, with a live preview, JPEG quality and file size; CMYK export for JPEG, TIFF and PDF; Copy Merged
+- Export PNG (⇧⌘E), Export JPEG (⇧⌥⌘S), and Export As (⇧⌥⌘W) for PNG, JPEG, TIFF, EXR for HDR, a one-page PDF at the print size or, with a GIF layer, an animated GIF, scaled if you like, with a live preview, JPEG quality and file size; CMYK export for JPEG, TIFF and PDF; Channel Pack in Export As packs layers into a PNG's red, green, blue and alpha for game textures, and RGB Split's Split to Layers turns a layer back into those four; right-click layers in the Layers panel to export each as its own PNG, trimmed to its pixels; Copy Merged
 - Keep working while a project saves
 - Photoshop-style keyboard shortcuts throughout, remappable in Edit > Keyboard Shortcuts
 - Drag a number's label to scrub its value, as in Photoshop
@@ -94,7 +97,17 @@ This compatibility build includes Simplified Chinese in `Compositor/zh-Hans.lpro
 
 ## Upstream sync
 
-This fork includes upstream 1.5.3 (`365b574`), including 16-bit layers, HDR/EXR, CMYK import and export, Progressive Blur, and the Camera Raw updates. Simplified Chinese and the macOS 15 deployment target are retained. RAW Highlight Recovery requires macOS 26 and a supported camera; its control is disabled on macOS 15. New saves use project format 17, which older builds cannot open; keep a copy before saving an older project with this version.
+This fork includes upstream main through `63f1013` (1.5.12 plus subsequent updates): animated GIF editing/export, PDF pages and PSD artboards, layer alignment/search/export, channel packing, lens effects, Rim Light, Volumetric Light, and selection and high-bit-depth fixes. Simplified Chinese, language switching, macOS 15 support and PhotoCraft-compatible LUT presets are retained. Pixel presets edit the selected GIF frame, with cancel and undo. Spatial filters cannot be exported as LUTs. RAW Highlight Recovery still requires macOS 26 and a supported camera. Volumetric Light downloads the upstream depth model on first use and verifies its checksums. New saves use project format 28; versions 1–20 and upstream GIF format 27 remain readable. Older apps cannot open format 28, so keep a copy before saving an older project.
+
+## Other platforms
+
+Compositor is macOS only. These unofficial ports are made by others, not reviewed or supported by me, so please report issues to them:
+
+- [CompositorWindows](https://github.com/Cengokill/CompositorWindows) by [@Cengokill](https://github.com/Cengokill): Windows
+- [Composa](https://github.com/dvdstelt/Composa) by [@dvdstelt](https://github.com/dvdstelt): Windows and Linux
+- [CompositorLX](https://github.com/ClaudiuJitea/compositorLX) by [@ClaudiuJitea](https://github.com/ClaudiuJitea): Linux
+
+More are listed in [#23 (Windows)](https://github.com/robbietilton/Compositor/issues/23) and [#19 (Linux)](https://github.com/robbietilton/Compositor/issues/19).
 
 ## Building
 
@@ -141,8 +154,11 @@ MIT — see [LICENSE](LICENSE).
 
 支持三维 `.cube`（2–129）、一维 `.cube`（转换为 33³）、`.3dl` 和 `.look`。与 PhotoCraft 一样，新导入的三维 LUT 要求默认 0–1 输入范围；不接受组合的一维／三维数据表。一维 LUT 的输入范围会在转换时处理。`.3dl` 的输入采样行按线性处理，输出整数位深按最大值推断。文件上限为 128 MiB，数据必须有限且在 ±65,504 内。
 
-**文件 → 导出 LUT**可将全部或所选的组外可见调整图层导出为 `.cube`，网格点数为 2–129（默认 33）。按工程图层顺序计算，保留不透明度和混合模式，忽略蒙版与剪贴关系；照片、文字和组内调整不进入 LUT。模糊、颗粒和噪点无法表示为 LUT；导出范围包含这些图层时会提示错误，请隐藏它们或仅选择调色图层。
+**文件 → 导出 LUT**可将全部或所选的组外可见调整图层导出为 `.cube`，网格点数为 2–129（默认 33）。按工程图层顺序计算，保留不透明度和混合模式，忽略蒙版与剪贴关系；照片、文字和组内调整不进入 LUT。模糊、颗粒、噪点、暗角、辉光、RGB 分离、镜头效果、色调对比度和锐化无法表示为 LUT；导出范围包含这些图层时会提示错误，请隐藏它们或仅选择调色图层。
 
-本轮不添加输入／输出色彩空间推测，也不显示此前扩展的 Log 设置。已有工程的自定义输入范围和色彩转换仍按原效果读取；在旧预设图层中选择另一份 LUT 后，转用 PhotoCraft 对齐模式。LUT 数据继续内嵌工程，移动原文件不影响已保存的效果。新工程格式为 **17**，仍可读取 1–16；旧版程序不能打开新保存的工程。
+本轮不添加输入／输出色彩空间推测，也不显示此前扩展的 Log 设置。已有工程的自定义输入范围和色彩转换仍按原效果读取；在旧预设图层中选择另一份 LUT 后，转用 PhotoCraft 对齐模式。LUT 数据继续内嵌工程，移动原文件不影响已保存的效果。新工程格式为 **28**，仍可读取 1–20 和上游 GIF 分支的 27；旧版程序不能打开新保存的工程。
 
 详细的对齐范围、测试与宿主差异见 [LUT 能力对齐说明](docs/lut-photocraft-parity.md)。移植部分采用 PhotoCraft 的 MIT 许可，许可文本随源码和应用分发。
+Volumetric Light's depth model, DepthMini, is distilled from [Depth Anything V2 Small](https://github.com/DepthAnything/Depth-Anything-V2)
+(Apache-2.0) and starts from torchvision's ImageNet-trained MobileNetV3 weights (BSD-3-Clause). It isn't in the app:
+it's downloaded the first time Volumetric Light opens.

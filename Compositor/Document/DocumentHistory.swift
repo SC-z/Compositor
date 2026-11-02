@@ -59,6 +59,9 @@ final class DocumentHistory {
         depth += 1
     }
 
+    /// The document as it was when the edit now ending began, if this is its outermost `end`.
+    var endingEditBefore: CanvasDocument? { depth == 1 ? pending?.document : nil }
+
     func end(document: CanvasDocument?, selection: UUID?) {
         guard depth > 0 else { return }
         depth -= 1
@@ -94,13 +97,22 @@ final class DocumentHistory {
         [asset.image, asset.thumbnail] + (asset.deep.map { [$0] } ?? [])
     }
 
+    private static func assets(of layer: ImageLayer) -> [ImportedImage] {
+        [layer.asset, layer.mask?.asset].compactMap { $0 } + Array(layer.gifAnimation?.framePixels.values ?? [:].values)
+    }
+
     /// Bytes retained only by history, excluding images and lookup tables in the live document.
     func retainedBytes(current: CanvasDocument?) -> Int {
         var seen = Set<ObjectIdentifier>()
+        var seenSources = Set<ObjectIdentifier>()
         for layer in current?.layers ?? [] {
             if let lookup = layer.adjustment?.colorLookup { seen.insert(ObjectIdentifier(lookup)) }
-            for asset in [layer.asset, layer.mask?.asset].compactMap({ $0 }) {
+            for asset in Self.assets(of: layer) {
                 for image in Self.images(of: asset) { seen.insert(ObjectIdentifier(image)) }
+            }
+            if let source = layer.gifAnimation?.source {
+                seenSources.insert(ObjectIdentifier(source))
+                for frame in source.frames { seen.insert(ObjectIdentifier(frame.thumbnail)) }
             }
         }
         var bytes = 0
@@ -108,9 +120,15 @@ final class DocumentHistory {
             for snapshot in [entry.before, entry.after] {
                 for layer in snapshot.document?.layers ?? [] {
                     if let lookup = layer.adjustment?.colorLookup, seen.insert(ObjectIdentifier(lookup)).inserted { bytes += lookup.cube.count }
-                    for asset in [layer.asset, layer.mask?.asset].compactMap({ $0 }) {
+                    for asset in Self.assets(of: layer) {
                         for image in Self.images(of: asset) where seen.insert(ObjectIdentifier(image)).inserted {
                             bytes += image.bytesPerRow * image.height
+                        }
+                    }
+                    if let source = layer.gifAnimation?.source {
+                        if seenSources.insert(ObjectIdentifier(source)).inserted { bytes += source.data.count }
+                        for frame in source.frames where seen.insert(ObjectIdentifier(frame.thumbnail)).inserted {
+                            bytes += frame.thumbnail.bytesPerRow * frame.thumbnail.height
                         }
                     }
                 }

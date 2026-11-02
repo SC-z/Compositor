@@ -114,6 +114,7 @@ actor PresetLoader {
     var settings: LUTSettings
     var name: String
     var pixelOriginal: ImageLayer?
+    var pixelSource: ImageLayer?
     var pixelIsMask = false
     var pixelSelection: SelectionClip?
     var renderedAsset: ImportedImage?
@@ -263,6 +264,7 @@ extension EditorSession {
            let index = document?.layers.firstIndex(where: { $0.id == original.id }) {
             document?.layers[index] = original; brushRevision += 1
         } else { applyPresetPreview() }
+        if commit, edit.error != nil { return false }
         if !commit { activeLayerID = edit.originalSelection }
         endEdit()
         presetEdit = nil
